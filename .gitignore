@@ -1,0 +1,38 @@
+# Images — published to Hugging Face, not committed
+data/raw/images/
+data/processed/
+*.zip
+*.tar.gz
+
+# Regenerable / machine-specific (rebuilt by the notebooks)
+data/splits.csv
+data/inat_taxon_map.json
+
+# Committed inputs/artifacts (kept in the repo so a clone can rebuild):
+#   data/raw/gbif_species_list.csv  — GBIF species list (input to notebook 01)
+#   data/selected_species.csv       — chosen species (output of notebook 01)
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model checkpoints
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

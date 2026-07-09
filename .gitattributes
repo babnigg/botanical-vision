@@ -1,0 +1,6 @@
+# Normalize line endings so Windows and Mac collaborators don't churn diffs
+* text=auto eol=lf
+
+# Treat notebooks and data as-is
+*.ipynb -text
+*.csv text eol=lf

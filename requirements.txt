@@ -1,0 +1,13 @@
+requests
+pandas
+numpy
+matplotlib
+seaborn
+Pillow
+tqdm
+torch
+torchvision
+scikit-learn
+datasets
+huggingface_hub
+# jupyter / jupyterlab assumed already installed; install separately if needed
