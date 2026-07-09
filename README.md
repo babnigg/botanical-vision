@@ -12,9 +12,12 @@ Every image is a research-grade (community-verified) iNaturalist observation of 
 flowering plant. We scope the dataset to species that are well-represented, so each
 class has enough images to train on.
 
-- **Which species:** the 4,172 flowering-plant species (Magnoliopsida + Liliopsida)
-  with at least 2,000 research-grade observations, spanning 231 families.
-- **How many images:** up to 100 photos per species (~420K images total).
+- **Which species:** flowering-plant species (Magnoliopsida + Liliopsida) with at
+  least 2,000 research-grade observations — 4,172 selected, **4,094 in the final
+  dataset** after dropping names that don't resolve on iNaturalist or lack enough
+  unique images.
+- **How many images:** up to 100 photos per species; **~408K after removing exact
+  duplicates** (285K train / 61K val / 61K test, stratified within each species).
 - **Where it lives:** images are published to Hugging Face, not committed to git, so
   the group loads one canonical copy instead of re-scraping.
 
@@ -60,8 +63,24 @@ ds = load_dataset("<username>/botanical-vision")   # train / val / test
 
 The dataset is public, so no Hugging Face account or login is required. The first
 call caches images locally (~25 GB when complete); for a quick look without the full
-download, pass `streaming=True`. Training uses a GPU if one is available (locally or
-via Google Colab) and falls back to CPU otherwise.
+download, pass `streaming=True`.
+
+**Torch / GPU.** `requirements.txt` installs a CPU build of PyTorch, which is enough
+to run everything (slowly). For GPU training, install the CUDA build instead:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+```
+
+Note: PyTorch must be **≥ 2.3** to work with NumPy 2. The notebooks pick GPU
+automatically when available and fall back to CPU otherwise; Google Colab is a free
+GPU option.
+
+### Train a classifier
+
+Run `notebooks/03_train_classifier.ipynb` — fine-tunes a pretrained ResNet-50 on the
+species splits (`data/splits.csv`) and reports top-1 / top-5 accuracy. Baseline for
+the fine-grained classification module.
 
 ### Rebuilding the dataset (maintainer only)
 
@@ -109,6 +128,10 @@ pass `--private` for a private dataset (which then requires teammates to have an
 account and be granted access). To smoke-test the upload on a handful of species,
 pass `--splits-csv <small_split.csv>` pointing at a mini split.
 
+The full dataset is ~25 GB, so the push takes a while. It's **resumable and retries
+through brief internet outages** — already-uploaded shards are skipped, so it's safe
+to re-run (or let it wait out) a connection that drops for a minute at a time.
+
 ### Layout
 
 ```
@@ -121,9 +144,11 @@ project/
 │   └── inat_taxon_map.json           # name→iNat taxon cache (gitignored)
 ├── notebooks/
 │   ├── 01_eda_species.ipynb          # species selection
-│   └── 02_eda_images.ipynb           # image EDA + split
+│   ├── 02_eda_images.ipynb           # image EDA + split
+│   └── 03_train_classifier.ipynb     # fine-tune ResNet-50 baseline
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
 │   └── upload_to_hf.py               # publish dataset to Hugging Face
+├── checkpoints/                      # saved models (gitignored)
 └── requirements.txt
 ```

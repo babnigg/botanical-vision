@@ -8,15 +8,21 @@ with `datasets.load_dataset("<repo>")` — no re-scraping.
 
 Auth: run `huggingface-cli login` first (or set HF_TOKEN).
 
+The push is resumable and retries through brief internet outages — already-uploaded
+shards are skipped, so it can survive connections that drop for a minute at a time.
+Safe to re-run at any point.
+
 Usage:
     python scripts/upload_to_hf.py --repo <username>/botanical-vision
     python scripts/upload_to_hf.py --repo <username>/botanical-vision --private
 """
 
 import argparse
+import time
 from pathlib import Path
 
 import pandas as pd
+import requests
 from datasets import ClassLabel, Dataset, DatasetDict, Features, Image, Value
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -131,6 +137,24 @@ ds = load_dataset("{repo}")
 """
 
 
+def retry(fn, what: str, attempts: int = 100, wait: int = 120):
+    """Run fn(), retrying on network errors. Resumable uploads skip already-sent
+    shards, so this survives brief internet outages (retries wait `wait` seconds).
+    """
+    from huggingface_hub.errors import HfHubHTTPError
+
+    for i in range(1, attempts + 1):
+        try:
+            return fn()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout,
+                HfHubHTTPError, RuntimeError, OSError) as e:
+            if i == attempts:
+                raise
+            print(f"\n[{what}] attempt {i} interrupted ({type(e).__name__}); "
+                  f"waiting {wait}s then resuming (uploaded shards are skipped)...")
+            time.sleep(wait)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Push the dataset to the Hugging Face Hub")
     parser.add_argument("--repo", required=True, help="target repo, e.g. username/botanical-vision")
@@ -146,16 +170,16 @@ def main():
     dsdict = build_dataset(splits_csv)
 
     print(f"\nPushing to {args.repo} ({'private' if args.private else 'public'})...")
-    dsdict.push_to_hub(args.repo, private=args.private)
+    retry(lambda: dsdict.push_to_hub(args.repo, private=args.private), "push")
 
     # dataset card
     from huggingface_hub import HfApi
-    HfApi().upload_file(
+    retry(lambda: HfApi().upload_file(
         path_or_fileobj=dataset_card(args.repo, dsdict).encode(),
         path_in_repo="README.md",
         repo_id=args.repo,
         repo_type="dataset",
-    )
+    ), "card")
     print(f"Done. https://huggingface.co/datasets/{args.repo}")
 
 

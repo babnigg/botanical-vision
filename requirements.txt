@@ -5,8 +5,8 @@ matplotlib
 seaborn
 Pillow
 tqdm
-torch
-torchvision
+torch>=2.3        # >=2.3 is numpy-2 compatible; for GPU install the CUDA build (see README)
+torchvision>=0.18
 scikit-learn
 datasets
 huggingface_hub
