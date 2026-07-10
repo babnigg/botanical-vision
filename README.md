@@ -100,8 +100,27 @@ epochs) starts fresh; set `FRESH = True` to force a fresh run. On **Google Colab
 local disk is wiped on disconnect, so mount Drive and point `CKPT_DIR` at a Drive
 path (the checkpoint cell shows how) or your progress won't survive.
 
-`05_evaluate.ipynb` loads `{RUN_NAME}_best.pt` — set `CHECKPOINT` there to the model
+`05_evaluate.ipynb` loads `{RUN_NAME}_best.pt` - set `CHECKPOINT` there to the model
 you want to evaluate.
+
+### Running on Google Colab
+
+The training and eval notebooks run **unchanged on Colab** - they auto-detect the
+environment. When the local `../data` files aren't present (i.e. on a Colab runtime),
+they load the dataset straight from HuggingFace, checkpoint to mounted Google Drive,
+and turn on mixed precision with a larger batch to use the T4's tensor cores (roughly
+3-6x faster than a small laptop GPU). Two ways to run:
+
+- **Colab VS Code extension** (`Google.colab`): open the notebook locally in VS Code,
+  pick the Colab kernel, sign in - cells execute on Colab's cloud T4 while your files
+  stay local. Note the remote runtime can't see your local `../data`, so it loads from
+  HuggingFace automatically.
+- **Colab web**: open the notebook from this GitHub repo (colab.research.google.com
+  -> GitHub tab), set the runtime to a T4 GPU, and run.
+
+Either way, mount Drive so `CKPT_DIR` persists across disconnects (the checkpoint cell
+handles this on Colab). Because training is resumable, a dropped session just picks up
+from the last checkpoint on Drive.
 
 ### Evaluate
 
