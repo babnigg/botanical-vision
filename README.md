@@ -78,9 +78,18 @@ GPU option.
 
 ### Train a classifier
 
-Run `notebooks/03_train_classifier.ipynb` — fine-tunes a pretrained ResNet-50 on the
-species splits (`data/splits.csv`) and reports top-1 / top-5 accuracy. Baseline for
-the fine-grained classification module.
+Two notebooks, both fine-tuning ResNet-50 on the species splits (`data/splits.csv`)
+and reporting top-1 / top-5 accuracy:
+
+- `notebooks/03_train_classifier.ipynb` — the **baseline**: a plain fine-tune, kept
+  fixed as the comparison point.
+- `notebooks/04_train_improved.ipynb` — mirrors the baseline with fine-grained
+  upgrades: stronger augmentation (RandAugment, color jitter, random erasing), label
+  smoothing, discriminative learning rates, a cosine schedule, more epochs, and
+  best-val checkpointing.
+
+Both have an `N_SPECIES` toggle — set it to an int (e.g. 100) for a quick run, or
+leave it `None` to train on all species (a multi-hour run on the full dataset).
 
 ### Rebuilding the dataset (maintainer only)
 
@@ -145,7 +154,8 @@ project/
 ├── notebooks/
 │   ├── 01_eda_species.ipynb          # species selection
 │   ├── 02_eda_images.ipynb           # image EDA + split
-│   └── 03_train_classifier.ipynb     # fine-tune ResNet-50 baseline
+│   ├── 03_train_classifier.ipynb     # ResNet-50 baseline (fixed reference)
+│   └── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
 │   └── upload_to_hf.py               # publish dataset to Hugging Face
