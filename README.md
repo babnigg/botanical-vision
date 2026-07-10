@@ -91,6 +91,17 @@ and reporting top-1 / top-5 accuracy:
 Both have an `N_SPECIES` toggle — set it to an int (e.g. 100) for a quick run, or
 leave it `None` to train on all species (a multi-hour run on the full dataset).
 
+### Evaluate
+
+`notebooks/05_evaluate.ipynb` loads a saved checkpoint (baseline or improved) and
+goes beyond top-1/top-5: macro-F1 and balanced accuracy (which weight every species
+equally despite the class imbalance), **taxonomy-aware accuracy** (right genus /
+right family even when the exact species is wrong), and visuals — per-species
+accuracy spread, a family-level confusion matrix, most-confused species pairs,
+error rate vs. derivable signals (a greenness/foliage proxy, image count,
+resolution), a prediction grid, a t-SNE of the learned embeddings by family, and
+Grad-CAM maps of where the model looks.
+
 ### Rebuilding the dataset (maintainer only)
 
 Everything below regenerates the dataset from scratch and only needs to be run once
@@ -155,7 +166,8 @@ project/
 │   ├── 01_eda_species.ipynb          # species selection
 │   ├── 02_eda_images.ipynb           # image EDA + split
 │   ├── 03_train_classifier.ipynb     # ResNet-50 baseline (fixed reference)
-│   └── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
+│   ├── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
+│   └── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
 │   └── upload_to_hf.py               # publish dataset to Hugging Face
