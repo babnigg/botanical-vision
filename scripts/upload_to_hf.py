@@ -18,12 +18,14 @@ Usage:
 """
 
 import argparse
+import io
 import time
 from pathlib import Path
 
 import pandas as pd
 import requests
 from datasets import ClassLabel, Dataset, DatasetDict, Features, Image, Value
+from PIL import Image as PILImage
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SPLITS_CSV = PROJECT_DIR / "data" / "splits.csv"
@@ -44,7 +46,16 @@ def abspath(p: str) -> str:
     return str((PROJECT_DIR / p).resolve())
 
 
-def build_dataset(splits_csv: Path = SPLITS_CSV) -> DatasetDict:
+def _resized_bytes(path: str, max_size: int) -> bytes:
+    """Load an image, shrink so its long edge is <= max_size (aspect preserved), re-encode JPEG."""
+    img = PILImage.open(path).convert("RGB")
+    img.thumbnail((max_size, max_size))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=90)
+    return buf.getvalue()
+
+
+def build_dataset(splits_csv: Path = SPLITS_CSV, max_size: int | None = None) -> DatasetDict:
     splits = pd.read_csv(splits_csv)
     species = pd.read_csv(SPECIES_CSV)
 
@@ -69,25 +80,43 @@ def build_dataset(splits_csv: Path = SPLITS_CSV) -> DatasetDict:
         "class": Value("string"),
     })
 
+    keep = ["path", "species", "species_key", "genus", "family", "order", "class"]
     ds = {}
     for split in ("train", "val", "test"):
         part = df[df["split"] == split].copy()
-        part["image"] = part["path"].map(abspath)
-        part["label"] = part["species"]
-        ds[split] = Dataset.from_pandas(
-            part[["image", "label", "species", "species_key", "genus", "family", "order", "class"]],
-            features=features,
-            preserve_index=False,
-        )
+        if max_size:
+            # resize each image and embed the shrunk JPEG bytes; from_generator streams
+            # to disk so we never hold all images in memory
+            rows = part[keep].to_dict("records")
+
+            def gen(rows=rows):
+                for r in rows:
+                    r = dict(r)
+                    r["image"] = {"bytes": _resized_bytes(abspath(r.pop("path")), max_size), "path": None}
+                    r["label"] = r["species"]
+                    yield r
+
+            ds[split] = Dataset.from_generator(gen, features=features)
+        else:
+            part["image"] = part["path"].map(abspath)
+            part["label"] = part["species"]
+            ds[split] = Dataset.from_pandas(
+                part[["image", "label", "species", "species_key", "genus", "family", "order", "class"]],
+                features=features,
+                preserve_index=False,
+            )
         print(f"{split:>5}: {len(part):,} images")
 
-    print(f"labels: {len(labels)} species")
+    print(f"labels: {len(labels)} species" + (f" | resized to <= {max_size}px" if max_size else ""))
     return DatasetDict(ds)
 
 
-def dataset_card(repo: str, dsdict: DatasetDict) -> str:
+def dataset_card(repo: str, dsdict: DatasetDict, max_size: int | None = None) -> str:
     n = sum(len(d) for d in dsdict.values())
     n_labels = dsdict["train"].features["label"].num_classes
+    res_note = (f"\n\nImages are downscaled so the long edge is at most {max_size}px "
+                f"(a smaller, Colab-friendly build of the full-resolution dataset)."
+                if max_size else "")
     return f"""---
 license: cc-by-nc-4.0
 task_categories:
@@ -103,7 +132,7 @@ tags:
 
 Fine-grained flowering-plant classification dataset: {n:,} research-grade
 iNaturalist photos across {n_labels:,} species (all flowering plants with at least
-2,000 observations). Built for Advanced Computer Vision (UChicago ADSP 32023).
+2,000 observations). Built for Advanced Computer Vision (UChicago ADSP 32023).{res_note}
 
 ## Splits
 
@@ -174,13 +203,16 @@ def main():
     parser.add_argument("--private", action="store_true", help="create a private dataset")
     parser.add_argument("--splits-csv", default=str(SPLITS_CSV),
                         help="override the splits file (e.g. a small test split)")
+    parser.add_argument("--max-size", type=int, default=None,
+                        help="resize images so the long edge is <= this many px (e.g. 256) "
+                             "for a small, Colab-friendly dataset; omit to keep full resolution")
     args = parser.parse_args()
 
     splits_csv = Path(args.splits_csv)
     if not splits_csv.exists():
         raise SystemExit(f"Missing {splits_csv}. Run notebooks/02_eda_images.ipynb first.")
 
-    dsdict = build_dataset(splits_csv)
+    dsdict = build_dataset(splits_csv, max_size=args.max_size)
 
     print(f"\nPushing to {args.repo} ({'private' if args.private else 'public'})...")
     retry(lambda: dsdict.push_to_hub(args.repo, private=args.private), "push")
@@ -188,7 +220,7 @@ def main():
     # dataset card
     from huggingface_hub import HfApi
     retry(lambda: HfApi().upload_file(
-        path_or_fileobj=dataset_card(args.repo, dsdict).encode(),
+        path_or_fileobj=dataset_card(args.repo, dsdict, args.max_size).encode(),
         path_in_repo="README.md",
         repo_id=args.repo,
         repo_type="dataset",

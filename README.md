@@ -61,9 +61,11 @@ from datasets import load_dataset
 ds = load_dataset("dbabnigg/botanical-vision")   # train / val / test
 ```
 
-The dataset is public, so no Hugging Face account or login is required. The first
-call caches images locally (~25 GB when complete); for a quick look without the full
-download, pass `streaming=True`.
+The dataset is public, so no Hugging Face account or login is required. `load_dataset`
+downloads and caches the whole dataset up front (the full-resolution
+`botanical-vision` is ~25 GB). For training on Colab use the downscaled
+`dbabnigg/botanical-vision-256` (~9 GB, identical schema) - which is exactly what the
+training notebooks load on their Colab path.
 
 **Torch / GPU.** `requirements.txt` installs a CPU build of PyTorch, which is enough
 to run everything (slowly). For GPU training, install the CUDA build instead:
@@ -166,18 +168,22 @@ dimensions, duplicate detection (exact and cross-species label leakage), and sam
 grids. Writes a stratified 70/15/15 `data/splits.csv`.
 
 **4. Publish to Hugging Face.** Requires a Hugging Face account and a write token.
+Publish two builds - full resolution for archival, and a downscaled build for Colab:
 
 ```bash
 huggingface-cli login
-python scripts/upload_to_hf.py --repo <username>/botanical-vision
+python scripts/upload_to_hf.py --repo <username>/botanical-vision                  # full res (~25 GB)
+python scripts/upload_to_hf.py --repo <username>/botanical-vision-256 --max-size 256  # ~9 GB, Colab-friendly
 ```
 
 Reads `splits.csv` and `selected_species.csv`, builds the train/val/test
 `DatasetDict` (each image labeled by species, with genus/family/order/class
-metadata), pushes it to the Hub, and writes the dataset card. Defaults to public;
-pass `--private` for a private dataset (which then requires teammates to have an
-account and be granted access). To smoke-test the upload on a handful of species,
-pass `--splits-csv <small_split.csv>` pointing at a mini split.
+metadata), pushes it to the Hub, and writes the dataset card. `--max-size 256`
+shrinks each image so its long edge is <= 256px (aspect preserved), giving a ~9 GB
+dataset that downloads in minutes and fits Colab's disk - the training notebooks read
+this `-256` repo on their HuggingFace/Colab path. Defaults to public; pass `--private`
+for a private dataset. To smoke-test on a handful of species, pass
+`--splits-csv <small_split.csv>` pointing at a mini split.
 
 The full dataset is ~25 GB, so the push takes a while. It's **resumable and retries
 through brief internet outages** — already-uploaded shards are skipped, so it's safe
