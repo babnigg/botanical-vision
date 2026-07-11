@@ -58,7 +58,7 @@ pip install -r requirements.txt
 
 ```python
 from datasets import load_dataset
-ds = load_dataset("<username>/botanical-vision")   # train / val / test
+ds = load_dataset("dbabnigg/botanical-vision")   # train / val / test
 ```
 
 The dataset is public, so no Hugging Face account or login is required. The first

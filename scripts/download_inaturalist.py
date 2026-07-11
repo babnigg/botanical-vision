@@ -39,15 +39,24 @@ session.headers.update({"User-Agent": "botanical-vision-eda/1.0 (grad CV coursew
 
 
 def resolve_taxon_id(scientific_name: str) -> int | None:
-    """Look up the iNaturalist taxon_id for a scientific name (plants only)."""
-    params = {"q": scientific_name, "rank": "species", "iconic_taxa": "Plantae", "per_page": 1}
+    """Look up the iNaturalist taxon_id for a scientific name (plants only).
+
+    `q` is a fuzzy search, so we verify the returned taxon's name actually matches the
+    query (case-insensitive) before trusting it - otherwise a synonym/homonym could
+    silently resolve to a different species and mislabel every downloaded photo.
+    """
+    params = {"q": scientific_name, "rank": "species", "iconic_taxa": "Plantae", "per_page": 5}
     try:
         resp = session.get(f"{API_BASE}/taxa", params=params, timeout=15)
         resp.raise_for_status()
         results = resp.json().get("results", [])
     except requests.RequestException:
         return None
-    return results[0].get("id") if results else None
+    want = scientific_name.strip().lower()
+    for r in results:
+        if r.get("name", "").strip().lower() == want:
+            return r.get("id")
+    return None  # no exact name match -> leave unresolved rather than mislabel
 
 
 def collect_photo_urls(taxon_id: int, num_needed: int, seen: set[str]) -> list[tuple[str, str]]:
@@ -126,7 +135,7 @@ def main():
         raise SystemExit(f"Missing {SELECTED_CSV}. Run notebooks/01_eda_species.ipynb first.")
 
     species = pd.read_csv(SELECTED_CSV)
-    if args.limit:
+    if args.limit is not None:
         species = species.head(args.limit)
     print(f"Processing {len(species)} species, up to {args.images_per_species} images each, {args.workers} workers.")
 

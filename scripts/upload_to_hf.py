@@ -48,11 +48,14 @@ def build_dataset(splits_csv: Path = SPLITS_CSV) -> DatasetDict:
     splits = pd.read_csv(splits_csv)
     species = pd.read_csv(SPECIES_CSV)
 
-    # attach taxonomy (family/genus/class) by species key
-    splits["species_key"] = splits["species_key"].astype(str)
+    # attach taxonomy (family/genus/class) by species key.
+    # via Int64 first so a stray NaN can't turn keys into "5384891.0" and break the join
+    splits["species_key"] = splits["species_key"].astype("Int64").astype(str)
     meta = species[["speciesKey", "genus", "family", "order", "class"]].copy()
-    meta["species_key"] = meta["speciesKey"].astype(str)
+    meta["species_key"] = meta["speciesKey"].astype("Int64").astype(str)
     df = splits.merge(meta.drop(columns="speciesKey"), on="species_key", how="left")
+    if df["family"].isna().any():
+        raise SystemExit(f"taxonomy join failed for {int(df['family'].isna().sum())} rows - check species_key alignment")
 
     labels = sorted(df["species"].unique())
     features = Features({
@@ -137,18 +140,28 @@ ds = load_dataset("{repo}")
 """
 
 
-def retry(fn, what: str, attempts: int = 100, wait: int = 120):
-    """Run fn(), retrying on network errors. Resumable uploads skip already-sent
-    shards, so this survives brief internet outages (retries wait `wait` seconds).
-    """
+def _is_transient(e) -> bool:
+    """Only wait-and-retry on genuinely transient network failures. Auth (401/403),
+    missing repo (404), too-large (413) etc. won't fix themselves — fail fast on those."""
     from huggingface_hub.errors import HfHubHTTPError
+    if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+        return True
+    if isinstance(e, HfHubHTTPError):
+        code = getattr(getattr(e, "response", None), "status_code", None)
+        return code is None or code == 429 or (code is not None and code >= 500)
+    return False
 
+
+def retry(fn, what: str, attempts: int = 100, wait: int = 120):
+    """Run fn(), retrying ONLY on transient network errors so a flaky connection can't
+    kill a long upload. Non-transient errors (bad token, missing repo, ...) raise at once.
+    Resumable uploads skip already-sent shards, so a retry continues where it left off.
+    """
     for i in range(1, attempts + 1):
         try:
             return fn()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout,
-                HfHubHTTPError, RuntimeError, OSError) as e:
-            if i == attempts:
+        except Exception as e:
+            if i == attempts or not _is_transient(e):
                 raise
             print(f"\n[{what}] attempt {i} interrupted ({type(e).__name__}); "
                   f"waiting {wait}s then resuming (uploaded shards are skipped)...")
