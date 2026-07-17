@@ -4,3 +4,5 @@
 # Treat notebooks and data as-is
 *.ipynb -text
 *.csv text eol=lf
+
+# Model weights live in the MLflow registry, not git — see models/README.md.

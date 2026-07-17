@@ -1,0 +1,15 @@
+app/
+notebooks/
+data/
+checkpoints/
+models/checkpoints/
+mlruns/
+mlartifacts/
+mlops/mlflow.db
+mlops/mlflow.db-*
+**/__pycache__/
+**/*.pyc
+.git/
+.github/
+*.md
+.venv/

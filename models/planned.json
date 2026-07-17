@@ -1,0 +1,46 @@
+{
+  "_comment": "Not-yet-trained models shown on the roadmap as 'planned'. Trained models come from the MLflow registry, not this file. When one of these is trained, register it in MLflow and drop its row here.",
+  "models": [
+    {
+      "id": "subject-segmenter",
+      "name": "Subject segmenter · SAM crop",
+      "module": "identify",
+      "task": "segmentation",
+      "stretch": true,
+      "metric": "zero-shot",
+      "status": "planned"
+    },
+    {
+      "id": "style-lora",
+      "name": "Botanical-plate style LoRA",
+      "module": "illustrate",
+      "task": "generation",
+      "metric": "B-LoRA · SD 1.5",
+      "status": "planned"
+    },
+    {
+      "id": "trait-table",
+      "name": "Plant trait table + zones",
+      "module": "compose",
+      "task": "data",
+      "metric": "~300 spp curated",
+      "status": "planned"
+    },
+    {
+      "id": "arrange-engine",
+      "name": "Planting arrangement engine",
+      "module": "compose",
+      "task": "algorithm",
+      "metric": "rule + scoring",
+      "status": "planned"
+    },
+    {
+      "id": "landscape-cn",
+      "name": "Landscape render · ControlNet-seg",
+      "module": "compose",
+      "task": "generation",
+      "metric": "SD 1.5 + seg",
+      "status": "planned"
+    }
+  ]
+}

@@ -31,6 +31,42 @@ plants with still images). The photos themselves are pulled from the iNaturalist
 
 Individual photos retain their own iNaturalist licenses and creator attribution.
 
+## Application (app + api)
+
+Beyond the notebooks, the project ships an **app** that wraps the models in a usable
+product, decoupled from training. Two parts:
+
+- `api/` — a **FastAPI** service that serves the classifier from the **MLflow Model
+  Registry** (`models:/botanical-classifier@production`), packaged as a pyfunc that
+  carries its own transform + labels. Registry status drives the app's module states,
+  and promotion runs through a champion/challenger evaluation gate. The model lifecycle
+  (register / evaluate / promote / Prefect flow) lives in `mlops/`. See `api/README.md`
+  and `models/README.md`.
+- `app/` — a **Vite + React + TypeScript** frontend (Identify · Illustrate · Compose ·
+  Toolbox, plus a roadmap/registry Overview), talking to the API via a dev proxy. See
+  `app/README.md`.
+
+Quick start (two terminals, from `project/`):
+
+```bash
+# terminal 1 — API
+pip install -r api/requirements.txt
+python -m uvicorn api.main:app --port 8000   # http://localhost:8000
+
+# terminal 2 — frontend  (run each line separately; PowerShell has no &&)
+cd app
+npm install
+npm run dev                              # http://localhost:5173
+```
+
+Training notebooks and the app share only the **MLflow registry**, not code: train, then
+`register` the checkpoint and let the evaluation `gate` promote it to `@production` — the
+app serves whatever holds that alias. See `mlops/` and `models/README.md`.
+
+**Development, Colab, adding models, and shared-registry (Databricks) setup:** see
+[`CONTRIBUTING.md`](CONTRIBUTING.md). The MLflow/serving layer is best-practice
+infrastructure; the graded core is the computer-vision work in `notebooks/`.
+
 ### How the data was built
 
 ```
@@ -208,6 +244,11 @@ project/
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
 │   └── upload_to_hf.py               # publish dataset to Hugging Face
-├── checkpoints/                      # saved models (gitignored)
+├── checkpoints/                      # training scratch (gitignored)
+├── mlops/                           # MLflow packaging, registry, eval gate, Prefect flow
+├── models/README.md · planned.json  # registry docs + roadmap rows for untrained models
+├── api/                             # FastAPI service — serves @production from MLflow
+├── app/                             # Vite + React + TS frontend (see app/README.md)
+├── Dockerfile · Makefile · .github/workflows/ci.yml
 └── requirements.txt
 ```

@@ -23,11 +23,29 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Model checkpoints
-checkpoints/
+# Frontend
+app/node_modules/
+app/dist/
+
+# Model weights — training scratch is NOT shared
+/checkpoints/
 *.pt
 *.pth
 *.ckpt
+*.safetensors
+
+# Model weights are the MLflow registry's job now — nothing under models/ is a weight.
+
+# MLflow local store (registry lives here in dev; use Databricks for a shared one)
+mlops/mlflow.db
+mlops/mlflow.db-*
+mlruns/
+mlartifacts/
+
+# Local env / secrets (keep .env.example tracked, never the real .env)
+.env
+.env.local
+.env.*.local
 
 # OS
 .DS_Store

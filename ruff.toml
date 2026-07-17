@@ -1,0 +1,11 @@
+line-length = 110
+target-version = "py312"
+
+[lint]
+# pyflakes (F) + a pragmatic subset of pycodestyle. Line length is enforced by the
+# formatter's preference, not the linter, so long strings don't fail CI.
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
