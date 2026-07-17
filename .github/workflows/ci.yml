@@ -19,9 +19,9 @@ jobs:
           pip install -r api/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
           pip install ruff pytest
       - name: Lint
-        run: ruff check api mlops
+        run: python -m ruff check api mlops
       - name: Test
-        run: pytest -q
+        run: python -m pytest -q
 
   docker-build:
     runs-on: ubuntu-latest
