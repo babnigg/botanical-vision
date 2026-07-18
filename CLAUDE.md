@@ -7,6 +7,10 @@ them working but don't let infra churn overshadow CV substance.
 
 Read `CONTRIBUTING.md` for the full workflow. The hard rules:
 
+- **The team loop is just two commands**: `mlops.publish` (share a trained model to the
+  shared HF model repo) and `mlops.leaderboard` (compare everyone's on the same test
+  split). Keep this simple — don't make teammates run MLflow/Prefect/Docker to share or
+  compare models. Those are behind-the-scenes and only concern the demo host.
 - **Keep `README.md` and `.gitignore` up to date with every change** (shared repo).
 - Run `make lint` and `make test` before proposing a commit; CI must pass.
 - Models reach the app only via the registry: **train → `mlops.register_checkpoint` →

@@ -3,12 +3,21 @@
 PY  ?= python
 LIMIT ?= 300
 
-.PHONY: help mlflow-ui register-baseline register evaluate promote flow serve test lint docker-build docker-run
+.PHONY: help publish leaderboard mlflow-ui register-baseline register evaluate promote flow serve test lint docker-build docker-run
 
 help:
-	@echo "mlflow-ui | register-baseline | register CKPT=... | evaluate V=.. | promote V=.. | flow CKPT=.. | serve | test | lint | docker-build | docker-run"
+	@echo "TEAM (the whole job): publish CKPT=... NAME=... | leaderboard"
+	@echo "app/infra (behind the scenes): mlflow-ui | register CKPT=... | evaluate V=.. | promote V=.. | flow CKPT=.. | serve | test | lint | docker-build | docker-run"
 
-mlflow-ui:            ## browse the registry + runs
+# --- what everyone actually uses: share a model, compare models ---
+publish:             ## share your model: make publish CKPT=checkpoints/x.pt NAME=my-model
+	$(PY) -m mlops.publish --checkpoint $(CKPT) --name $(NAME)
+
+leaderboard:         ## rank everyone's shared models on the same test split
+	$(PY) -m mlops.leaderboard --limit $(LIMIT)
+
+# --- app / deployment plumbing (only whoever hosts the demo needs these) ---
+mlflow-ui:           ## browse the registry + runs
 	$(PY) -m mlflow ui --backend-store-uri sqlite:///mlops/mlflow.db --port 5000
 
 register-baseline:    ## backfill baseline as @production

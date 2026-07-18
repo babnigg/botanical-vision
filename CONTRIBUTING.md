@@ -19,6 +19,27 @@ app/         Vite + React + TS frontend
 models/      README.md (registry flow) + planned.json (untrained-model roadmap rows)
 ```
 
+## Your job: improve models & share them
+
+This is a CV class — the work is **making the model better**, and sharing it so the team
+can compare. That's two commands on top of the training notebook:
+
+```bash
+# 1. improve the model in notebooks/04_train_improved.ipynb, then share your best:
+python -m mlops.publish --checkpoint checkpoints/resnet50_improved_best.pt --name my-model
+
+# 2. see how everyone's models stack up (same test split, apples-to-apples):
+python -m mlops.leaderboard
+```
+
+`publish` uploads your weights to the shared **Hugging Face model repo** (not git —
+weights never go in git), tagged by your username; `leaderboard` pulls everyone's and
+scores them identically. First time only: `huggingface-cli login`.
+
+**You can stop reading here for day-to-day work.** Everything below (MLflow, the API,
+Docker, CI) is behind-the-scenes plumbing for hosting a live demo — it runs itself and
+only concerns whoever deploys.
+
 ## Local setup (laptop)
 
 ```bash
@@ -38,7 +59,11 @@ python -m mlflow ui --backend-store-uri sqlite:///mlops/mlflow.db --port 5000   
 
 Windows without `make`: run the commands directly; otherwise `make help` lists shortcuts.
 
-## The model lifecycle (how a model reaches the app)
+## Behind the scenes: how a champion reaches the live app (demo host only)
+
+*Most teammates never run this.* Sharing/comparing models is `publish` + `leaderboard`
+(above). This section is only for whoever hosts the live demo: once the leaderboard has a
+winner, they register it into MLflow and let the gate promote it to what the API serves.
 
 1. **Train** in `notebooks/03_train_classifier.ipynb` / `04_train_improved.ipynb`.
 2. **Register** → a versioned pyfunc model in MLflow:
@@ -116,5 +141,6 @@ Then everyone (Colab or laptop) registers/reads the same versions.
   (`.github/workflows/ci.yml` runs ruff + pytest + docker build).
 - Branch off `main` and open a PR; don't push to `main` directly.
 - **Never commit**: model weights (`*.pt`), datasets/images, `mlflow.db`, `mlruns/`,
-  `.env`, `node_modules/`. Data lives on Hugging Face; weights in the registry.
+  `.env`, `node_modules/`. Data and models both live on Hugging Face (share models with
+  `mlops.publish`); the local MLflow registry is only how the demo host serves a champion.
 - Prioritize the **CV work** — deployment infra supports the project's grade, it isn't it.

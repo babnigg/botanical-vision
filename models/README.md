@@ -1,4 +1,23 @@
-# Deployed models — MLflow Model Registry
+# Models — sharing, comparing, and serving
+
+## Sharing & comparing (what everyone uses)
+
+The team shares trained models through a **shared Hugging Face model repo**
+(`dbabnigg/botanical-vision-models`) — the model equivalent of how the dataset already
+lives on the Hub. Weights never go in git.
+
+```bash
+python -m mlops.publish --checkpoint checkpoints/resnet50_improved_best.pt --name my-model
+python -m mlops.leaderboard        # pulls everyone's, scores on the same test split, ranks
+```
+
+`publish` uploads a lean bundle (weights + labels + transform) under `{your-username}/{name}`;
+`leaderboard` downloads every shared model and evaluates them identically. That's the whole
+model-improvement loop for the class — the MLflow machinery below is **not** part of it.
+
+---
+
+## Serving a champion (behind the scenes — demo host only)
 
 The app serves models from a real **MLflow Model Registry**, not a hand-edited file.
 Training tracks runs in MLflow; a checkpoint is packaged as a versioned pyfunc model;

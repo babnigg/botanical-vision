@@ -6,6 +6,28 @@ for Advanced Computer Vision (ADSP 32023).
 The current stage builds the classification dataset: photos of flowering plants
 labeled by species, sourced from citizen-science observations on iNaturalist.
 
+## What we're actually doing (start here)
+
+This is a **computer-vision class**, so the only work that matters is **making the model
+better**. The whole loop is three steps, and only the middle one is really yours:
+
+1. **Get the data** — one line; it's already on Hugging Face, you never scrape anything.
+2. **Improve the model** — iterate in `notebooks/04_train_improved.ipynb`.
+3. **Share your best model** so the team can compare — two commands:
+
+   ```bash
+   python -m mlops.publish --checkpoint checkpoints/resnet50_improved_best.pt --name my-model
+   python -m mlops.leaderboard        # ranks everyone's shared models on the same test set
+   ```
+
+That's the entire job. Publishing uploads your weights to a shared Hugging Face model
+repo (not git); the leaderboard pulls everyone's and scores them identically, so "whose
+model is best" is an objective number.
+
+> **Everything else in this repo — the app, the API, MLflow, Docker, CI — is
+> behind-the-scenes plumbing that runs itself.** You do **not** need to touch any of it
+> to train, share, or compare models. It only matters to whoever hosts the live demo.
+
 ## Data
 
 Every image is a research-grade (community-verified) iNaturalist observation of a
@@ -31,7 +53,11 @@ plants with still images). The photos themselves are pulled from the iNaturalist
 
 Individual photos retain their own iNaturalist licenses and creator attribution.
 
-## Application (app + api)
+## Application (app + api) — behind the scenes
+
+> You don't run any of this to train, share, or compare models (see *start here* above).
+> It exists so a champion model can be demoed as a product, and it's maintained by
+> whoever hosts the demo — the rest of the team can skip this section.
 
 Beyond the notebooks, the project ships an **app** that wraps the models in a usable
 product, decoupled from training. Two parts:
@@ -94,14 +120,15 @@ pip install -r requirements.txt
 
 ```python
 from datasets import load_dataset
-ds = load_dataset("dbabnigg/botanical-vision")   # train / val / test
+ds = load_dataset("dbabnigg/botanical-vision-256")   # train / val / test
 ```
 
-The dataset is public, so no Hugging Face account or login is required. `load_dataset`
-downloads and caches the whole dataset up front (the full-resolution
-`botanical-vision` is ~25 GB). For training on Colab use the downscaled
-`dbabnigg/botanical-vision-256` (~9 GB, identical schema) - which is exactly what the
-training notebooks load on their Colab path.
+The dataset is public, so no Hugging Face account or login is required. Use the
+downscaled **`botanical-vision-256`** (~9 GB, long edge ≤ 256px) — it downloads in
+minutes, fits Colab's disk, and is **exactly what the training notebooks load**, so
+teammates and the notebooks read the same build. A full-resolution
+`dbabnigg/botanical-vision` (~25 GB, identical schema) also exists for archival, but
+you don't need it to train or evaluate.
 
 **Torch / GPU.** `requirements.txt` installs a CPU build of PyTorch, which is enough
 to run everything (slowly). For GPU training, install the CUDA build instead:
@@ -114,15 +141,31 @@ Note: PyTorch must be **≥ 2.3** to work with NumPy 2. The notebooks pick GPU
 automatically when available and fall back to CPU otherwise; Google Colab is a free
 GPU option.
 
+### Which notebooks do I run?
+
+Teammates run only **03 → 05** — they auto-load the dataset from Hugging Face, so you
+never need local data.
+
+| Notebook | Who | What to do |
+| --- | --- | --- |
+| `01_eda_species` | maintainer only | **don't re-run** — rebuilds the species selection; read only |
+| `02_eda_images` | maintainer only | **don't re-run** — inventories raw images + writes the split; read only |
+| `03_train_classifier` | everyone | **run-only** baseline (fixed reference) — don't experiment here |
+| `04_train_improved` | everyone | **where model work goes** — all improvements live here |
+| `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
+
+Training writes a `.pt` to `checkpoints/`; it does **not** update the app by itself —
+register + promote it through `mlops/` (see below) to serve it.
+
 ### Train a classifier
 
 Two notebooks, both fine-tuning ResNet-50 on the species splits (`data/splits.csv`)
 and reporting top-1 / top-5 accuracy:
 
 - `notebooks/03_train_classifier.ipynb` — the **baseline**: a plain fine-tune, kept
-  fixed as the comparison point.
-- `notebooks/04_train_improved.ipynb` — mirrors the baseline with fine-grained
-  upgrades: stronger augmentation (RandAugment, color jitter, random erasing), label
+  fixed as the comparison point (run it, don't modify it).
+- `notebooks/04_train_improved.ipynb` — the **active model** where improvements go:
+  stronger augmentation (RandAugment, color jitter, random erasing), label
   smoothing, discriminative learning rates, a cosine schedule, more epochs, and
   best-val checkpointing.
 
