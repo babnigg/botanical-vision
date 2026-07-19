@@ -1,10 +1,11 @@
 # Botanical Vision
 
-Fine-grained flowering-plant classification and botanical-illustration generation
-for Advanced Computer Vision (ADSP 32023).
+Fine-grained flowering-plant classification for Advanced Computer Vision (ADSP 32023) —
+a gardener's tool with a computer-vision spine: **Identify** a plant from a photo,
+collect species in a **Toolbox**, and **Compose** a garden design.
 
-The current stage builds the classification dataset: photos of flowering plants
-labeled by species, sourced from citizen-science observations on iNaturalist.
+The current stage builds and improves the classifier: photos of flowering plants labeled
+by species, sourced from citizen-science observations on iNaturalist.
 
 ## What we're actually doing (start here)
 
@@ -16,17 +17,18 @@ better**. The whole loop is three steps, and only the middle one is really yours
 3. **Share your best model** so the team can compare — two commands:
 
    ```bash
-   python -m mlops.publish --checkpoint checkpoints/resnet50_improved_best.pt --name my-model
-   python -m mlops.leaderboard        # ranks everyone's shared models on the same test set
+   python -m share.publish --checkpoint checkpoints/resnet50_improved_best.pt --name my-model
+   python -m share.leaderboard        # ranks everyone's shared models on the same test set
    ```
 
 That's the entire job. Publishing uploads your weights to a shared Hugging Face model
 repo (not git); the leaderboard pulls everyone's and scores them identically, so "whose
-model is best" is an objective number.
+model is best" is an objective number. (`python -m share.score --checkpoint <ckpt>` checks
+your own first.)
 
-> **Everything else in this repo — the app, the API, MLflow, Docker, CI — is
-> behind-the-scenes plumbing that runs itself.** You do **not** need to touch any of it
-> to train, share, or compare models. It only matters to whoever hosts the live demo.
+> There's also a separate **demo app** in `demo/` (Identify · Toolbox · Compose) that shows
+> the classifier as a product. It's self-contained and optional — you never need it to
+> train, share, or compare models. See [`demo/README.md`](demo/README.md).
 
 ## Data
 
@@ -52,46 +54,6 @@ plants with still images). The photos themselves are pulled from the iNaturalist
 > GBIF.org (8 July 2026) GBIF Occurrence Download https://doi.org/10.15468/dl.3hragg
 
 Individual photos retain their own iNaturalist licenses and creator attribution.
-
-## Application (app + api) — behind the scenes
-
-> You don't run any of this to train, share, or compare models (see *start here* above).
-> It exists so a champion model can be demoed as a product, and it's maintained by
-> whoever hosts the demo — the rest of the team can skip this section.
-
-Beyond the notebooks, the project ships an **app** that wraps the models in a usable
-product, decoupled from training. Two parts:
-
-- `api/` — a **FastAPI** service that serves the classifier from the **MLflow Model
-  Registry** (`models:/botanical-classifier@production`), packaged as a pyfunc that
-  carries its own transform + labels. Registry status drives the app's module states,
-  and promotion runs through a champion/challenger evaluation gate. The model lifecycle
-  (register / evaluate / promote / Prefect flow) lives in `mlops/`. See `api/README.md`
-  and `models/README.md`.
-- `app/` — a **Vite + React + TypeScript** frontend (Identify · Illustrate · Compose ·
-  Toolbox, plus a roadmap/registry Overview), talking to the API via a dev proxy. See
-  `app/README.md`.
-
-Quick start (two terminals, from `project/`):
-
-```bash
-# terminal 1 — API
-pip install -r api/requirements.txt
-python -m uvicorn api.main:app --port 8000   # http://localhost:8000
-
-# terminal 2 — frontend  (run each line separately; PowerShell has no &&)
-cd app
-npm install
-npm run dev                              # http://localhost:5173
-```
-
-Training notebooks and the app share only the **MLflow registry**, not code: train, then
-`register` the checkpoint and let the evaluation `gate` promote it to `@production` — the
-app serves whatever holds that alias. See `mlops/` and `models/README.md`.
-
-**Development, Colab, adding models, and shared-registry (Databricks) setup:** see
-[`CONTRIBUTING.md`](CONTRIBUTING.md). The MLflow/serving layer is best-practice
-infrastructure; the graded core is the computer-vision work in `notebooks/`.
 
 ### How the data was built
 
@@ -154,8 +116,8 @@ never need local data.
 | `04_train_improved` | everyone | **where model work goes** — all improvements live here |
 | `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
 
-Training writes a `.pt` to `checkpoints/`; it does **not** update the app by itself —
-register + promote it through `mlops/` (see below) to serve it.
+Training writes a `.pt` to `checkpoints/`. To share it with the team, run
+`python -m share.publish` (see *start here* above).
 
 ### Train a classifier
 
@@ -181,27 +143,19 @@ epochs) starts fresh; set `FRESH = True` to force a fresh run. On **Google Colab
 local disk is wiped on disconnect, so mount Drive and point `CKPT_DIR` at a Drive
 path (the checkpoint cell shows how) or your progress won't survive.
 
-`05_evaluate.ipynb` loads `{RUN_NAME}_best.pt` - set `CHECKPOINT` there to the model
+`05_evaluate.ipynb` loads `{RUN_NAME}_best.pt` — set `CHECKPOINT` there to the model
 you want to evaluate.
 
 ### Running on Google Colab
 
-The training and eval notebooks run **unchanged on Colab** - they auto-detect the
+The training and eval notebooks run **unchanged on Colab** — they auto-detect the
 environment. When the local `../data` files aren't present (i.e. on a Colab runtime),
 they load the dataset straight from HuggingFace, checkpoint to mounted Google Drive,
 and turn on mixed precision with a larger batch to use the T4's tensor cores (roughly
-3-6x faster than a small laptop GPU). Two ways to run:
-
-- **Colab VS Code extension** (`Google.colab`): open the notebook locally in VS Code,
-  pick the Colab kernel, sign in - cells execute on Colab's cloud T4 while your files
-  stay local. Note the remote runtime can't see your local `../data`, so it loads from
-  HuggingFace automatically.
-- **Colab web**: open the notebook from this GitHub repo (colab.research.google.com
-  -> GitHub tab), set the runtime to a T4 GPU, and run.
-
-Either way, mount Drive so `CKPT_DIR` persists across disconnects (the checkpoint cell
-handles this on Colab). Because training is resumable, a dropped session just picks up
-from the last checkpoint on Drive.
+3-6x faster than a small laptop GPU). Open the notebook via the Colab VS Code
+extension or from GitHub on colab.research.google.com, set a T4 runtime, and run.
+Because training is resumable, a dropped session just picks up from the last
+checkpoint on Drive.
 
 ### Evaluate
 
@@ -247,7 +201,7 @@ dimensions, duplicate detection (exact and cross-species label leakage), and sam
 grids. Writes a stratified 70/15/15 `data/splits.csv`.
 
 **4. Publish to Hugging Face.** Requires a Hugging Face account and a write token.
-Publish two builds - full resolution for archival, and a downscaled build for Colab:
+Publish two builds — full resolution for archival, and a downscaled build for Colab:
 
 ```bash
 huggingface-cli login
@@ -257,16 +211,10 @@ python scripts/upload_to_hf.py --repo <username>/botanical-vision-256 --max-size
 
 Reads `splits.csv` and `selected_species.csv`, builds the train/val/test
 `DatasetDict` (each image labeled by species, with genus/family/order/class
-metadata), pushes it to the Hub, and writes the dataset card. `--max-size 256`
-shrinks each image so its long edge is <= 256px (aspect preserved), giving a ~9 GB
-dataset that downloads in minutes and fits Colab's disk - the training notebooks read
-this `-256` repo on their HuggingFace/Colab path. Defaults to public; pass `--private`
-for a private dataset. To smoke-test on a handful of species, pass
-`--splits-csv <small_split.csv>` pointing at a mini split.
-
-The full dataset is ~25 GB, so the push takes a while. It's **resumable and retries
-through brief internet outages** — already-uploaded shards are skipped, so it's safe
-to re-run (or let it wait out) a connection that drops for a minute at a time.
+metadata), pushes it to the Hub, and writes the dataset card. The `-256` build is
+what the training notebooks read. Defaults to public; pass `--private` for a private
+dataset. The full dataset is ~25 GB, so the push takes a while — it's **resumable and
+retries through brief internet outages**, so it's safe to re-run.
 
 ### Layout
 
@@ -279,19 +227,19 @@ project/
 │   ├── splits.csv                    # train/val/test assignment (from notebook 02)
 │   └── inat_taxon_map.json           # name→iNat taxon cache (gitignored)
 ├── notebooks/
-│   ├── 01_eda_species.ipynb          # species selection
-│   ├── 02_eda_images.ipynb           # image EDA + split
+│   ├── 01_eda_species.ipynb          # species selection            (maintainer only)
+│   ├── 02_eda_images.ipynb           # image EDA + split            (maintainer only)
 │   ├── 03_train_classifier.ipynb     # ResNet-50 baseline (fixed reference)
 │   ├── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
 │   └── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
+├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit)
+├── share/                            # the team model-sharing loop (publish/leaderboard/score)
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
 │   └── upload_to_hf.py               # publish dataset to Hugging Face
 ├── checkpoints/                      # training scratch (gitignored)
-├── mlops/                           # MLflow packaging, registry, eval gate, Prefect flow
-├── models/README.md · planned.json  # registry docs + roadmap rows for untrained models
-├── api/                             # FastAPI service — serves @production from MLflow
-├── app/                             # Vite + React + TS frontend (see app/README.md)
-├── Dockerfile · Makefile · .github/workflows/ci.yml
-└── requirements.txt
+├── models/planned.json              # roadmap rows for models not yet built
+├── demo/                            # separate showcase app (React + minimal FastAPI)
+├── kaggle/                          # headless Kaggle-GPU run tooling (kernel-metadata + README)
+├── Makefile · requirements.txt
 ```

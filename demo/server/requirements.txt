@@ -1,0 +1,14 @@
+# Demo backend runtime — no MLflow, no registry. Loads a checkpoint directly.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+python-multipart>=0.0.9
+Pillow>=10
+
+# Real classifier inference. The API detects torch at runtime and falls back to a
+# stub if it's absent, so the frontend runs without these.
+torch>=2.3
+torchvision>=0.18
+
+# Listing / pulling models from the shared Hugging Face repo (the model picker).
+huggingface_hub

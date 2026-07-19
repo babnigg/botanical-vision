@@ -1,25 +1,31 @@
 # Repo guide for AI assistants (and humans in a hurry)
 
-**Project:** ADSP 32023 (Advanced Computer Vision). Fine-grained plant classification +
-botanical-illustration generation + sketch-to-landscape. The **CV work is the graded
-core**; `api/`, `app/`, and `mlops/` are supporting best-practice infrastructure — keep
-them working but don't let infra churn overshadow CV substance.
+**Project:** ADSP 32023 (Advanced Computer Vision). A gardener's tool with a
+computer-vision spine: **Identify** a flowering plant from a photo → collect it in a
+**Toolbox** → **Compose** a garden design. The graded core is the CV models in
+`notebooks/`; the `demo/` app is a separate showcase.
 
-Read `CONTRIBUTING.md` for the full workflow. The hard rules:
+**This repo was deliberately kept small** (the MLflow registry, FastAPI service, Docker,
+and CI were removed). The hard rules:
 
-- **The team loop is just two commands**: `mlops.publish` (share a trained model to the
-  shared HF model repo) and `mlops.leaderboard` (compare everyone's on the same test
-  split). Keep this simple — don't make teammates run MLflow/Prefect/Docker to share or
-  compare models. Those are behind-the-scenes and only concern the demo host.
-- **Keep `README.md` and `.gitignore` up to date with every change** (shared repo).
-- Run `make lint` and `make test` before proposing a commit; CI must pass.
-- Models reach the app only via the registry: **train → `mlops.register_checkpoint` →
-  `mlops.evaluate` → `mlops.promote` (champion/challenger gate) → served as
-  `@production`**. Status is read from MLflow, never hand-edited.
-- Adding another section's model = register it + add a row to `mlops/config.py` `MODELS`
-  (+ its own pyfunc flavor and a model-appropriate eval). Don't reuse the classifier's
-  top-1 eval for generators.
-- Never commit weights (`*.pt`), data/images, `mlflow.db`, `mlruns/`, `.env`,
-  `node_modules/`. Data lives on Hugging Face; a shared registry is Databricks (one env var).
-- Serve from `models:/botanical-classifier@production`; the API falls back to a labeled
-  stub when no model/torch is available, so the frontend always runs.
+- **The team loop is two commands** — the point of the repo for the class:
+  `python -m share.publish --checkpoint <ckpt> --name <name>` shares a trained model to the
+  shared HF model repo; `python -m share.leaderboard` ranks everyone's on the same test
+  split. `python -m share.score --checkpoint <ckpt>` checks your own first. No MLflow, no
+  registry, no server.
+- **`share/` is lean and model-agnostic** — don't reintroduce a registry, promotion gate,
+  Docker, or CI. Weights travel via the HF model repo, never git.
+- **`demo/` is a separate, self-contained app** (React + a minimal FastAPI that loads a
+  checkpoint directly). Keep it decoupled — never make the notebooks or `share/` depend on it.
+- **Notebooks are the graded work.** 01/02 are maintainer-only (don't re-run); teammates
+  run 03 → 05. Model experiments go in `04_train_improved` (leave it be if it's mid-run).
+- **Notebook plumbing lives in `bvtrain/`** (env detection, data loading, resumable
+  checkpointing across local/Colab/Kaggle, the training loop, eval). Keep the *model /
+  augmentation / optimizer* in the notebook; put reusable machinery in `bvtrain/`. The
+  notebooks bootstrap it by cloning the repo on Colab/Kaggle. Kaggle headless-run tooling
+  is in `kaggle/` (see its README).
+- **Constants must match the notebooks:** ImageNet normalization
+  (`MEAN=[0.485,0.456,0.406]`, `STD=[0.229,0.224,0.225]`), `IMG_SIZE=224`, top-5 — the
+  transfer-learning (Week 4) standard. `share/constants.py` mirrors notebooks 03/04/05.
+- Keep `README.md` and `.gitignore` current with pipeline changes. Run `make lint` before
+  proposing a commit.

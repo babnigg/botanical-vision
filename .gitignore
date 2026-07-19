@@ -23,9 +23,13 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Frontend
-app/node_modules/
-app/dist/
+# Frontend (the separate demo app)
+node_modules/
+demo/web/dist/
+
+# Kaggle push tooling — transient notebook copies + pulled outputs
+kaggle/*.ipynb
+kaggle/out/
 
 # Model weights — training scratch is NOT shared
 /checkpoints/
@@ -34,13 +38,7 @@ app/dist/
 *.ckpt
 *.safetensors
 
-# Model weights are the MLflow registry's job now — nothing under models/ is a weight.
-
-# MLflow local store (registry lives here in dev; use Databricks for a shared one)
-mlops/mlflow.db
-mlops/mlflow.db-*
-mlruns/
-mlartifacts/
+# Weights are shared via the HF model repo (see share/), never git — nothing under models/ is a weight.
 
 # Local env / secrets (keep .env.example tracked, never the real .env)
 .env
