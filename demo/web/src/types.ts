@@ -47,6 +47,8 @@ export interface ClassifyResponse {
   };
   note: string | null;
   module_status: ModuleState;
+  mask_png_b64?: string | null;
+  segmenter?: string | null;
 }
 
 export interface SpeciesReference {

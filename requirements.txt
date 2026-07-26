@@ -11,3 +11,7 @@ scikit-learn
 datasets
 huggingface_hub
 # jupyter / jupyterlab assumed already installed; install separately if needed
+# ultralytics — MAINTAINER-ONLY, needed for scripts/generate_pseudo_masks.py
+# (FastSAM teacher). Install separately: pip install ultralytics
+# Teammates who only run notebook 06 don't need it — the masks dataset is
+# already published on Hugging Face.

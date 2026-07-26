@@ -182,6 +182,9 @@ button { font-family:inherit; cursor:pointer; }
 .preview img { display:block; width:100%; max-height:320px; object-fit:contain; }
 .samplefill { aspect-ratio:4/3; display:grid; place-items:center; font-family:var(--mono); font-size:12px; color:var(--ink-soft); }
 .preview .clearbtn { position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; border:none; background:rgba(0,0,0,.55); color:#fff; font-size:16px; line-height:1; cursor:pointer; }
+.preview .mask-overlay { position:absolute; inset:0; width:100%; height:100%; max-height:320px; object-fit:contain; pointer-events:none; opacity:.55; mix-blend-mode:multiply; }
+.preview .mask-toggle { position:absolute; bottom:8px; left:8px; border:none; background:rgba(0,0,0,.55); color:#fff; font-family:var(--mono); font-size:11px; padding:4px 8px; border-radius:6px; cursor:pointer; letter-spacing:.05em; }
+.preview .mask-toggle[aria-pressed="true"] { background:color-mix(in oklab,var(--brand) 70%,black); }
 .samplerow { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12.5px; color:var(--ink-soft); flex-wrap:wrap; }
 .samplelink { border:1px solid var(--line); background:var(--panel); color:var(--ink); border-radius:7px; padding:4px 10px; font-size:12px; cursor:pointer; }
 .samplelink[aria-pressed="true"] { border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in oklab,var(--accent) 26%,transparent); }

@@ -15,6 +15,7 @@ class Env:
     on_kaggle: bool
     use_local: bool
     hf_repo: str = "dbabnigg/botanical-vision-256"
+    hf_masks_repo: str | None = None    # companion masks dataset for notebook 06
 
     @property
     def kind(self) -> str:
@@ -22,6 +23,7 @@ class Env:
 
 
 def setup(hf_repo: str = "dbabnigg/botanical-vision-256",
+          hf_masks_repo: str | None = None,
           data_path: str = "../data/splits.csv") -> Env:
     """Detect device + platform. Uses local data if present, else the HF dataset."""
     try:
@@ -32,6 +34,6 @@ def setup(hf_repo: str = "dbabnigg/botanical-vision-256",
     on_kaggle = os.environ.get("KAGGLE_KERNEL_RUN_TYPE") is not None
     use_local = Path(data_path).exists()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    env = Env(device, on_colab, on_kaggle, use_local, hf_repo)
+    env = Env(device, on_colab, on_kaggle, use_local, hf_repo, hf_masks_repo)
     print(f"device: {device} | data: {'local' if use_local else 'huggingface'} | env: {env.kind}")
     return env
