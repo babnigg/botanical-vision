@@ -17,7 +17,6 @@ from .traits import taxonomy
 ROOT = Path(__file__).resolve().parents[2]
 CKPT_DIR = ROOT / "checkpoints"
 SEL_FILE = CKPT_DIR / ".demo_selected.json"
-SEG_SEL_FILE = CKPT_DIR / ".demo_seg_selected.json"
 
 # ImageNet normalization + 224 crop — must match the notebooks (03/04/05/06).
 MEAN = [0.485, 0.456, 0.406]
@@ -167,16 +166,8 @@ def served_model() -> dict | None:
 
 
 def _resolve_seg_path() -> Path | None:
-    """Which segmenter checkpoint to serve. Explicit selection wins; otherwise
-    the newest local ``checkpoints/*_seg_best.pt`` (if any). Missing = segmentation
-    stage is a no-op."""
-    if SEG_SEL_FILE.exists():
-        try:
-            p = Path(json.loads(SEG_SEL_FILE.read_text(encoding="utf-8")).get("path", ""))
-            if p.exists():
-                return p
-        except Exception:
-            pass
+    """Which segmenter checkpoint to serve: the newest local
+    ``checkpoints/*_seg_best.pt``, or None (segmentation stage is a no-op)."""
     hits = sorted(CKPT_DIR.glob("*_seg_best.pt"),
                   key=lambda x: x.stat().st_mtime, reverse=True)
     return hits[0] if hits else None

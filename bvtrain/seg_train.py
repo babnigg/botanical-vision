@@ -63,9 +63,16 @@ def _sig_seg(arch, loaders, optimizer, criterion, epochs, seed) -> str:
 
 
 def _model_out(model, x):
-    """Torchvision segmentation models return an OrderedDict; unwrap the main head."""
+    """Torchvision segmentation models return an OrderedDict; unwrap the main head.
+
+    fit_seg has no aux-head loss term, so silently dropping ``out["aux"]`` would
+    waste those gradients — build the model with ``aux_loss=False`` (as notebook
+    06 does) or extend the loss before enabling it."""
     out = model(x)
-    return out["out"] if isinstance(out, dict) else out
+    if isinstance(out, dict):
+        assert "aux" not in out, "aux head present but fit_seg has no aux loss; build with aux_loss=False"
+        return out["out"]
+    return out
 
 
 def _run_seg_eval(model, dl, dev, criterion, use_amp, desc):
