@@ -115,6 +115,7 @@ never need local data.
 | `03_train_classifier` | everyone | **run-only** baseline (fixed reference) — don't experiment here |
 | `04_train_improved` | everyone | **where model work goes** — all improvements live here |
 | `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
+| `06_detect_subject` | optional | zero-shot YOLO subject localizer + Δtop-1 (see below) |
 
 Training writes a `.pt` to `checkpoints/`. To share it with the team, run
 `python -m share.publish` (see *start here* above).
@@ -167,6 +168,15 @@ accuracy spread, a family-level confusion matrix, most-confused species pairs,
 error rate vs. derivable signals (a greenness/foliage proxy, image count,
 resolution), a prediction grid, a t-SNE of the learned embeddings by family, and
 Grad-CAM maps of where the model looks.
+
+### Subject localizer (optional)
+
+`notebooks/06_detect_subject.ipynb` addresses the `subject-localizer` row in
+`models/planned.json`: it uses a **pretrained, open-vocabulary YOLO (YOLO-World)** to draw
+a box around the plant/flower subject in a photo — zero-shot, since the dataset has no
+bounding-box labels to fine-tune a detector on. It reports **Δtop-1** (does cropping to the
+localized subject change a trained classifier's accuracy?) on a small streamed sample
+instead of IoU/mAP, which need ground-truth boxes this dataset doesn't have.
 
 ### Rebuilding the dataset (maintainer only)
 
@@ -231,7 +241,8 @@ project/
 │   ├── 02_eda_images.ipynb           # image EDA + split            (maintainer only)
 │   ├── 03_train_classifier.ipynb     # ResNet-50 baseline (fixed reference)
 │   ├── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
-│   └── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
+│   ├── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
+│   └── 06_detect_subject.ipynb       # zero-shot YOLO subject localizer + Δtop-1 (optional)
 ├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit)
 ├── share/                            # the team model-sharing loop (publish/leaderboard/score)
 ├── scripts/
