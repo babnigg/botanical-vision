@@ -56,3 +56,6 @@ Thumbs.db
 # tool caches
 .ruff_cache/
 .pytest_cache/
+
+# collected real drawings (licensed images stay out of git)
+/data/real_plans/

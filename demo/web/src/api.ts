@@ -56,6 +56,22 @@ export const api = {
       body: JSON.stringify(body),
     }).then(json<ComposeResponse>),
 
+  composeRender: (body: {
+    width: number;
+    depth: number;
+    plants: { species: string; x: number; y: number; r: number }[];
+  }) =>
+    fetch("/api/compose/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(json<{ ok: boolean; job?: string; error?: string }>),
+
+  composeRenderStatus: (job: string) =>
+    fetch(`/api/compose/render/${job}`).then(
+      json<{ status: string; elapsed?: number; png_b64?: string; error?: string }>,
+    ),
+
   reference: (species: string) =>
     fetch(`/api/reference/${encodeURIComponent(species)}`).then(json<SpeciesReference>),
 

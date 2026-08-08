@@ -123,6 +123,8 @@ Face, plans generated procedurally), so you never need local data.
 | `10_garden_layout` | optional | Compose — rule-generated planting plans + autoregressive layout transformer |
 | `11_complete_layout` | optional | Compose — masked-diffusion completion (pin toolbox plants, infill the rest; sun-conditioned) |
 | `12_render_plan` | optional | Compose — seg-ControlNet render of any plan (zero training) |
+| `13_refine_layout` | optional | Compose — designed corpus, count-token conditioning, best-of-N + repair decoding |
+| `14_real_plans` | optional | Compose — label real drawings (Hough+edge verification) → transfer pretraining |
 
 Training writes a `.pt` to `checkpoints/`. To share it with the team, run
 `python -m share.publish` (see *start here* above).
@@ -262,10 +264,22 @@ scoring metrics. Shared primitives (palette, rule generator, metrics, drawing) l
   perfectly, 1.00 compliance). Overall 0.78; drift parity remains the open problem.
   Training is checkpointed and resumable (`checkpoints/garden_maskdiff_{last,best}.pt`).
 - **`12_render_plan`** — a plan is already a segmentation map, so SD 1.5 +
-  `control_v11p_sd15_seg` renders it with zero training (~2–4 min/image on a 4 GB GPU
-  via CPU offload, ~10 s on a T4). Includes the conditioning-scale ablation and a
-  CLIP-scored style comparison. Only future style-LoRA / custom-ControlNet *training*
-  needs Colab.
+  `control_v11p_sd15_seg` renders it with zero training (~10 min/image on a 4 GB GPU
+  via CPU offload in fp32, ~10 s on a T4 in fp16). Includes the conditioning-scale
+  ablation and a CLIP-scored style comparison. Only future style-LoRA /
+  custom-ControlNet *training* needs Colab.
+- **`13_refine_layout`** — iteration 3, every step A/B-measured: a *designed* teacher
+  corpus (elongated drifts, theme repetition, 60/30/10 color budget, bloom set-cover —
+  each rule also a metric), per-species **count tokens** for global conditioning, and
+  **decode-time search** (best-of-8 reranked by the metrics + constraint repair).
+  Result: model 0.800 → 0.891 ≈ teacher 0.900 on `score2`; drift 0.45 → 0.94; CLIP
+  aesthetic edge survives the render. Measured caveat: count tokens obey only softly
+  (0.72 plants/species), so guaranteed pinning still uses slot tokens.
+- **`14_real_plans`** — real drawings as the next teacher: a Hough + edge-verification
+  labeler (validated at precision ≈ 1.0 / recall ≈ 0.94–1.0 on known ground truth, with
+  a density gate that correctly rejects off-genre engravings) converts circle-symbol
+  planting plans into canvases, size-pseudo-labeled. Drop collected drawings into
+  `data/real_plans/` (not committed); transfer pretraining arms itself at ≥ 20 plans.
 
 ### Rebuilding the dataset (maintainer only)
 

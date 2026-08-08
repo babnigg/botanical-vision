@@ -23,5 +23,18 @@ class ComposeRequest(BaseModel):
     pins: list[ComposePin] = []   # toolbox species to lock into the plan
 
 
+class RenderPlant(BaseModel):
+    species: str
+    x: float
+    y: float
+    r: float
+
+
+class RenderRequest(BaseModel):
+    width: float
+    depth: float
+    plants: list[RenderPlant] = []
+
+
 class SelectRequest(BaseModel):
     id: str                       # a model id from /api/models ("local:..." or "shared:...")

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import NotYet from "../components/NotYet";
 import { useStore } from "../store";
@@ -22,6 +22,47 @@ export default function Compose() {
   const [result, setResult] = useState<ComposeResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [renderState, setRenderState] = useState<string | null>(null);
+  const [renderImg, setRenderImg] = useState<string | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+  }, []);
+
+  const startRender = async () => {
+    if (!result || !result.bed) return;
+    setRenderState("starting");
+    setRenderImg(null);
+    try {
+      const r = await api.composeRender({
+        width: result.bed.w,
+        depth: result.bed.d,
+        plants: result.plants.map((p) => ({ species: p.species, x: p.x, y: p.y, r: p.r })),
+      });
+      if (!r.ok || !r.job) {
+        setRenderState(`failed: ${r.error ?? "no job"}`);
+        return;
+      }
+      const job = r.job;
+      pollRef.current = window.setInterval(async () => {
+        const st = await api.composeRenderStatus(job).catch(() => null);
+        if (!st) return;
+        if (st.status === "done" && st.png_b64) {
+          setRenderImg(st.png_b64);
+          setRenderState(null);
+          if (pollRef.current) window.clearInterval(pollRef.current);
+        } else if (st.status === "failed") {
+          setRenderState(`failed: ${st.error ?? "unknown"}`);
+          if (pollRef.current) window.clearInterval(pollRef.current);
+        } else {
+          setRenderState(`${st.status}… ${Math.round((st.elapsed ?? 0) / 60)} min elapsed`);
+        }
+      }, 10000);
+    } catch (e) {
+      setRenderState(e instanceof Error ? e.message : "render failed");
+    }
+  };
 
   useEffect(() => {
     api
@@ -89,8 +130,8 @@ export default function Compose() {
         <h1>Garden studio</h1>
         <p>
           Pick a bed, pin favorites, and let the layout model plant the rest — a
-          masked-diffusion transformer trained on rule-generated planting plans
-          (notebook 11).
+          masked-diffusion transformer over designed planting plans, sampled
+          best-of-6 with constraint repair (notebook 13).
         </p>
       </div>
       <div className="grid2">
@@ -170,7 +211,7 @@ export default function Compose() {
             {result && (
               <span className="aux">
                 served by the{" "}
-                {result.served === "diffusion" ? "diffusion model" : "rule engine"}
+                {result.served.startsWith("diffusion") ? result.served : "rule engine"}
               </span>
             )}
           </h4>
@@ -227,8 +268,37 @@ export default function Compose() {
                   not in the palette: {result.ignored_pins.join(", ")}
                 </div>
               )}
+              <div className="actions">
+                <button className="btn ghost" onClick={startRender} disabled={!!renderState}>
+                  {renderState ? "Rendering…" : "Styled render (≈10–17 min)"}
+                </button>
+              </div>
+              {renderState && <div className="note">{renderState}</div>}
+              {renderImg && (
+                <div className="preview" style={{ marginTop: 10 }}>
+                  <img src={renderImg} alt="styled render of this plan" />
+                </div>
+              )}
             </>
           )}
+        </div>
+      </div>
+      <div className="card" style={{ marginTop: 20 }}>
+        <h4>
+          What the render looks like{" "}
+          <span className="aux">pre-rendered examples · SD 1.5 + seg ControlNet (notebook 13)</span>
+        </h4>
+        <div className="grid2">
+          <figure style={{ margin: 0 }}>
+            <img src="/gallery/render_iter3.png" alt="styled render, iteration-3 plan"
+                 style={{ width: "100%", borderRadius: 10 }} />
+            <figcaption className="aux">a generated plan, rendered as a watercolor planting plan</figcaption>
+          </figure>
+          <figure style={{ margin: 0 }}>
+            <img src="/gallery/cond_iter3.png" alt="conditioning image for the render"
+                 style={{ width: "100%", borderRadius: 10 }} />
+            <figcaption className="aux">its conditioning image — the plan is already a segmentation map</figcaption>
+          </figure>
         </div>
       </div>
     </>

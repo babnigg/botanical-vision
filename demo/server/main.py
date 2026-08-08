@@ -93,6 +93,16 @@ def compose_plan(body: schemas.ComposeRequest) -> dict:
     return compose.generate(body.width, body.depth, body.sun, [p.model_dump() for p in body.pins])
 
 
+@app.post("/api/compose/render")
+def compose_render(body: schemas.RenderRequest) -> dict:
+    return compose.start_render([p.model_dump() for p in body.plants], body.width, body.depth)
+
+
+@app.get("/api/compose/render/{job_id}")
+def compose_render_status(job_id: str) -> dict:
+    return compose.render_status(job_id)
+
+
 # ---- legacy arrange endpoint (seeded trait table; superseded by /api/compose) ----
 @app.get("/api/zone/{zip_code}")
 def zone(zip_code: str) -> dict:

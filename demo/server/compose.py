@@ -1,36 +1,53 @@
-"""Compose engine: serve garden plans from the trained masked-diffusion layout model
-(notebook 11, checkpoints/garden_maskdiff_best.pt), falling back to the rule generator.
+"""Compose engine: garden plans from the iteration-3 masked-diffusion layout model
+(notebook 13, checkpoints/garden_maskdiff2_best.pt) with decode-time search — sample
+N candidates, repair, rerank by the layout metrics. Falls back to the rule generator
+without torch or the checkpoint.
+
+Pinning uses slot tokens (guaranteed: >= requested plants appear) plus the matching
+count token as a soft prior — notebook 13 measured count tokens alone at 0.72
+plants/species obedience, not enough for a promise to the user.
 
 Loads bvtrain/garden.py directly by file path (not the bvtrain package) so the demo
-stays decoupled from the training stack's imports. Torch is imported lazily, mirroring
-classifier.py — without torch or the checkpoint, Compose degrades to rules or a stub.
+stays decoupled from the training stack. Torch imports lazily, mirroring classifier.py.
 """
 from __future__ import annotations
 
+import base64
 import importlib.util
+import io
 import math
+import threading
+import time
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CKPT = ROOT / "checkpoints" / "garden_maskdiff_best.pt"
+CKPT = ROOT / "checkpoints" / "garden_maskdiff2_best.pt"
 
-# token scheme — must mirror notebooks/11_complete_layout.ipynb exactly
-NX, NY, NW, ND = 32, 12, 9, 7
+# token scheme — must mirror notebooks/13_refine_layout.ipynb exactly
+NX, NY, NW, ND, NCNT = 32, 12, 9, 7, 10
+NSP = 16
 MASK = 0
 T_W = 1
 T_D = T_W + NW
 T_SUN = T_D + ND
-T_SP = T_SUN + 3
-T_X = T_SP + 1 + 16
+T_CNT = T_SUN + 3
+T_SP = T_CNT + NCNT
+T_X = T_SP + 1 + NSP
 T_Y = T_X + 1 + NX
 VOCAB = T_Y + 1 + NY
 MAXP = 60
-L = 3 + 3 * MAXP
+L = 3 + NSP + 3 * MAXP
+
+N_CANDIDATES = 6
 
 _garden = None
 _model = None
 _model_tried = False
 _fam = None
+_render_jobs: dict = {}
+_render_lock = threading.Lock()
+_pipe = None
 
 
 def garden():
@@ -91,7 +108,7 @@ def status() -> str:
         return "live"
     try:
         garden()
-        return "partial"      # rules only
+        return "partial"
     except Exception:
         return "prototype"
 
@@ -108,8 +125,8 @@ def _site_tokens(w, d, sun):
 def _fam_mask(torch):
     global _fam
     if _fam is None:
-        fam = [(T_W, T_D), (T_D, T_SUN), (T_SUN, T_SP)] + \
-              [(T_SP, T_X), (T_X, T_Y), (T_Y, VOCAB)] * MAXP
+        fam = ([(T_W, T_D), (T_D, T_SUN), (T_SUN, T_CNT)] + [(T_CNT, T_SP)] * NSP
+               + [(T_SP, T_X), (T_X, T_Y), (T_Y, VOCAB)] * MAXP)
         m = torch.full((L, VOCAB), float("-inf"))
         for p, (lo, hi) in enumerate(fam):
             m[p, lo:hi] = 0
@@ -120,7 +137,7 @@ def _fam_mask(torch):
 def _decode(tokens, w, d):
     g = garden()
     plan = []
-    for k in range(3, L, 3):
+    for k in range(3 + NSP, L, 3):
         s, x, y = tokens[k] - T_SP, tokens[k + 1] - T_X, tokens[k + 2] - T_Y
         if s <= 0 or x <= 0 or y <= 0:
             continue
@@ -129,36 +146,46 @@ def _decode(tokens, w, d):
     return plan
 
 
-def _sample(model, w, d, sun, pin_slots, steps=12):
+def _sample_batch(model, w, d, sun, pin_list, n, steps=12):
     torch = _torch()
     import torch.nn.functional as F
-    canvas = torch.zeros(1, L, dtype=torch.long)
-    fixed = torch.zeros(1, L, dtype=torch.bool)
-    nonone = torch.zeros(1, L, dtype=torch.bool)
-    canvas[0, :3] = torch.tensor(_site_tokens(w, d, sun))
-    fixed[0, :3] = True
-    for slot, sp_idx in pin_slots.items():
-        p = 3 + slot * 3
-        canvas[0, p] = T_SP + 1 + sp_idx
-        fixed[0, p] = True
-        nonone[0, p + 1] = nonone[0, p + 2] = True
+    canvas = torch.zeros(n, L, dtype=torch.long)
+    fixed = torch.zeros(n, L, dtype=torch.bool)
+    nonone = torch.zeros(n, L, dtype=torch.bool)
+    site = torch.tensor(_site_tokens(w, d, sun))
+    canvas[:, :3] = site
+    fixed[:, :3] = True
+    # slot pins guarantee presence; the count token carries the same brief as a prior
+    slot = 0
+    for sp_idx, cnt in pin_list:
+        canvas[:, 3 + sp_idx] = T_CNT + min(NCNT - 1, cnt)
+        fixed[:, 3 + sp_idx] = True
+        for _ in range(cnt):
+            if slot >= MAXP:
+                break
+            p = 3 + NSP + slot * 3
+            canvas[:, p] = T_SP + 1 + sp_idx
+            fixed[:, p] = True
+            nonone[:, p + 1] = nonone[:, p + 2] = True
+            slot += 1
     canvas[~fixed] = MASK
-    m0 = int((canvas == MASK).sum())
+    m0 = (canvas == MASK).sum(1)
     with torch.no_grad():
         for t in range(steps):
             logits = model(canvas) + _fam_mask(torch)
             logits[..., T_X] = logits[..., T_X].masked_fill(nonone, float("-inf"))
             logits[..., T_Y] = logits[..., T_Y].masked_fill(nonone, float("-inf"))
             probs = F.softmax(logits, -1)
-            samp = torch.multinomial(probs.reshape(-1, VOCAB), 1).reshape(1, L)
+            samp = torch.multinomial(probs.reshape(-1, VOCAB), 1).reshape(n, L)
             conf = probs.gather(-1, samp.unsqueeze(-1)).squeeze(-1)
             still = canvas == MASK
             canvas = torch.where(still, samp, canvas)
-            n_mask = int(m0 * math.cos(math.pi / 2 * (t + 1) / steps))
-            if n_mask:
-                conf = conf.masked_fill(~still, float("inf"))
-                canvas[0, conf[0].argsort()[:n_mask]] = MASK
-    return _decode(canvas[0].tolist(), w, d)
+            n_mask = (m0.float() * math.cos(math.pi / 2 * (t + 1) / steps)).long()
+            conf = conf.masked_fill(~still, float("inf"))
+            for b in range(n):
+                if n_mask[b] > 0:
+                    canvas[b, conf[b].argsort()[:n_mask[b]]] = MASK
+    return [_decode(canvas[b].tolist(), w, d) for b in range(n)]
 
 
 def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
@@ -168,36 +195,113 @@ def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
     sun = max(0, min(2, int(sun)))
 
     by_name = {p["name"].lower(): i for i, p in enumerate(g.PALETTE)}
-    resolved, ignored = [], []
+    pin_list, ignored = [], []
     for pin in pins or []:
         i = by_name.get(str(pin.get("species", "")).lower())
         if i is None:
             ignored.append(pin.get("species"))
         else:
-            resolved += [i] * max(1, min(9, int(pin.get("count", 1))))
-    resolved = resolved[:MAXP // 2]
+            pin_list.append((i, max(1, min(9, int(pin.get("count", 1))))))
+    # taller pinned species take earlier (backer) slots
+    pin_list.sort(key=lambda t: -g.PALETTE[t[0]]["h"])
 
     model = _load_model()
     if model is not None:
-        # back-to-front canvas order: taller pinned species get earlier slots
-        resolved.sort(key=lambda i: -g.PALETTE[i]["h"])
-        plan = _sample(model, w, d, sun, dict(enumerate(resolved)))
-        served, note = "diffusion", None
+        cands = [g.repair(p, w, d) for p in _sample_batch(model, w, d, sun, pin_list, N_CANDIDATES)]
+        plan = max(cands, key=lambda p: g.score2(p, w, d, sun)["score"])
+        served, note = f"diffusion2 best-of-{N_CANDIDATES}", None
     else:
-        plan = g.gen_plan(w, d, sun)
+        plan = g.repair(g.gen_plan2(w, d, sun), w, d)
         served = "rules"
         note = "layout model checkpoint not found — serving the rule generator; pins not placed"
 
-    pinned = {g.PALETTE[i]["name"] for i in resolved} if served == "diffusion" else set()
+    pinned = {g.PALETTE[i]["name"] for i, _ in pin_list} if model is not None else set()
     plants = [{"species": g.PALETTE[i]["name"], "layer": g.PALETTE[i]["layer"],
                "color": g.PALETTE[i]["color"], "h": g.PALETTE[i]["h"],
                "x": round(x, 3), "y": round(y, 3), "r": round(r, 3),
                "pinned": g.PALETTE[i]["name"] in pinned}
               for i, x, y, r in plan]
-    metrics = {k: round(v, 3) for k, v in g.score(plan, w, d, sun).items()}
+    metrics = {k: round(v, 3) for k, v in g.score2(plan, w, d, sun).items()}
     out = {"live": True, "served": served,
            "bed": {"w": w, "d": d, "sun": sun, "sun_name": g.SUN_NAMES[sun]},
            "plants": plants, "metrics": metrics, "ignored_pins": ignored}
     if note:
         out["note"] = note
+    return out
+
+
+# ── styled render jobs (sd 1.5 + seg controlnet; ~10-17 min on this machine) ──
+
+def _load_pipe():
+    global _pipe
+    if _pipe is not None:
+        return _pipe
+    import torch
+    from diffusers import (ControlNetModel, StableDiffusionControlNetPipeline,
+                           UniPCMultistepScheduler)
+    vram = torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0
+    dtype = torch.float16 if vram >= 8 else torch.float32
+    cn = ControlNetModel.from_pretrained("lllyasviel/control_v11p_sd15_seg", torch_dtype=dtype)
+    pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        "stable-diffusion-v1-5/stable-diffusion-v1-5", controlnet=cn,
+        torch_dtype=dtype, safety_checker=None)
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    if vram and vram < 8:
+        pipe.enable_model_cpu_offload()
+        pipe.enable_attention_slicing()
+        pipe.enable_vae_tiling()
+    else:
+        pipe.to("cuda")
+    _pipe = pipe
+    return pipe
+
+
+def _run_render(job_id, plants, w, d):
+    import torch
+    g = garden()
+    job = _render_jobs[job_id]
+    try:
+        by_name = {p["name"]: i for i, p in enumerate(g.PALETTE)}
+        plan = [(by_name[p["species"]], p["x"], p["y"], p["r"])
+                for p in plants if p.get("species") in by_name]
+        cond = g.seg_image(plan, w, d).resize((640, 384))
+        job["status"] = "loading model"
+        with _render_lock:                      # one render at a time
+            pipe = _load_pipe()
+            job["status"] = "rendering"
+            t0 = time.time()
+            img = pipe("top-down garden planting plan, perennial border with flowering "
+                       "shrubs, lush, watercolor botanical illustration",
+                       image=cond, num_inference_steps=20, guidance_scale=7.0,
+                       controlnet_conditioning_scale=0.9,
+                       generator=torch.Generator().manual_seed(0)).images[0]
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        job["png_b64"] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+        job["seconds"] = round(time.time() - t0, 1)
+        job["status"] = "done"
+    except Exception as e:
+        job["status"] = "failed"
+        job["error"] = str(e)[:200]
+
+
+def start_render(plants: list[dict], w: float, d: float) -> dict:
+    if _torch() is None:
+        return {"ok": False, "error": "torch unavailable"}
+    job_id = uuid.uuid4().hex[:12]
+    _render_jobs[job_id] = {"status": "queued", "started": time.time()}
+    threading.Thread(target=_run_render, args=(job_id, plants, w, d), daemon=True).start()
+    return {"ok": True, "job": job_id}
+
+
+def render_status(job_id: str) -> dict:
+    job = _render_jobs.get(job_id)
+    if job is None:
+        return {"status": "unknown"}
+    out = {"status": job["status"], "elapsed": round(time.time() - job["started"], 1)}
+    if job["status"] == "done":
+        out["png_b64"] = job["png_b64"]
+        out["seconds"] = job["seconds"]
+    if job.get("error"):
+        out["error"] = job["error"]
     return out

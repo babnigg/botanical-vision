@@ -14,4 +14,5 @@ ultralytics       # YOLO subject localizer (nb 06) + FastSAM mask teacher (maint
 diffusers         # seg-controlnet render (nb 12)
 transformers      # CLIP style scoring (nb 12)
 accelerate        # enable_model_cpu_offload for the low-vram render path (nb 12)
+opencv-python     # plan-symbol extraction (nb 14)
 # jupyter / jupyterlab assumed already installed; install separately if needed
