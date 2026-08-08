@@ -133,7 +133,10 @@ Two notebooks, both fine-tuning ResNet-50 on the species splits (`data/splits.cs
 and reporting top-1 / top-5 accuracy:
 
 - `notebooks/03_train_classifier.ipynb` — the **baseline**: a plain fine-tune, kept
-  fixed as the comparison point (run it, don't modify it).
+  fixed as the comparison point (run it, don't modify it). Reference run on all
+  4,094 species (Kaggle T4, 5 epochs, 2026-08-08): **test top-1 0.549 · top-5 0.755**
+  (best val 0.555) — trained headless via `kaggle/` (a 4 GB laptop GPU would take
+  ~100 h; the T4 does it in ~3 h).
 - `notebooks/04_train_improved.ipynb` — the **active model** where improvements go:
   stronger augmentation (RandAugment, color jitter, random erasing), label
   smoothing, discriminative learning rates, a cosine schedule, more epochs, and
