@@ -8,8 +8,11 @@ changing it never touches the model-improvement work.
 Modules:
 - **Identify** — photo → species (top-5 + taxonomy), served from a checkpoint.
 - **Toolbox** — collect identified species; feeds the garden studio.
-- **Compose** — garden-design placeholder: a seeded plant trait table + a simple
-  arrangement engine. The full trait table and a ControlNet render are the roadmap.
+- **Compose** — a live garden studio: bed size + sun in, planting plan out, drawn as
+  an SVG plan view. Served by the masked-diffusion layout model (notebook 11,
+  `checkpoints/garden_maskdiff_best.pt`) with species pinning — pick favorites, the
+  model infills the rest; falls back to the rule generator without the checkpoint.
+  The in-app render is symbolic; styled image renders live in notebook 12.
 
 ## Run it (two terminals, from `demo/`)
 
@@ -36,7 +39,7 @@ stub, so the UI always runs.
 ```
 demo/
 ├── server/   FastAPI — loads a checkpoint directly, serves /api/*
-│   ├── main.py · classifier.py · registry.py (static) · refs.py · traits.py · schemas.py
+│   ├── main.py · classifier.py · compose.py · models.py · registry.py · refs.py · traits.py · schemas.py
 │   └── requirements.txt
 └── web/      Vite + React + TS frontend (Identify · Compose · Toolbox · Roadmap)
 ```

@@ -11,7 +11,7 @@ from __future__ import annotations
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import classifier, models, refs, registry, schemas, traits
+from . import classifier, compose, models, refs, registry, schemas, traits
 
 app = FastAPI(title="Botanical Vision Demo", version="0.2.0")
 
@@ -82,7 +82,18 @@ def random_photo() -> dict:
     return refs.random_photo()
 
 
-# ---- Compose (garden design — placeholder engine over the seeded trait table) ----
+# ---- Compose (garden design — layout model from notebook 11, rules fallback) ----
+@app.get("/api/compose/palette")
+def compose_palette() -> dict:
+    return {"palette": compose.palette(), "status": compose.status()}
+
+
+@app.post("/api/compose")
+def compose_plan(body: schemas.ComposeRequest) -> dict:
+    return compose.generate(body.width, body.depth, body.sun, [p.model_dump() for p in body.pins])
+
+
+# ---- legacy arrange endpoint (seeded trait table; superseded by /api/compose) ----
 @app.get("/api/zone/{zip_code}")
 def zone(zip_code: str) -> dict:
     return {"zip": zip_code, "zone": traits.zone_from_zip(zip_code)}

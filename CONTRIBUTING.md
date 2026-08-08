@@ -4,22 +4,28 @@
 
 An **ADSP 32023 (Advanced Computer Vision)** project — a gardener's tool with a CV spine:
 fine-grained flowering-plant **classification** (Identify), a **Toolbox** of collected
-species, and **Compose**, a garden-design tool. The **computer-vision work is the graded
-core** (the models, notebooks, evaluation). The `demo/` app is a separate showcase.
+species, **Stylize** (photo → botanical artwork, notebooks 08/09 — scaffolds looking for
+an owner), and **Compose**, a generative garden-design tool (notebooks 10–12). The
+**computer-vision work is the graded core** (the models, notebooks, evaluation). The
+`demo/` app is a separate showcase.
 
 Layout:
 
 ```
-notebooks/   01–05  data pipeline + training + evaluation   (the CV core)
+notebooks/   01–02 data pipeline · 03–05 classifier · 06 detect · 07 segment
+             08–09 stylize (placeholders, owner tbd) · 10–12 compose (layout + render)
+bvtrain/     shared notebook plumbing (env · data · fit · fit_seg · garden)
 share/       publish / leaderboard / score — the team model-sharing loop
-scripts/     dataset build (download_inaturalist, upload_to_hf) — maintainer-only
+scripts/     dataset build (download_inaturalist, upload_to_hf) + pseudo-masks + Δtop-1
 demo/        separate showcase app: React frontend + a minimal FastAPI (loads a checkpoint)
 ```
 
 ## Your job: improve models & share them
 
-The work is **making the model better** and sharing it so the team can compare. Two
-commands on top of the training notebook:
+The classifier work is **making the model better** (in `04_train_improved`) and sharing
+it so the team can compare. The stylize notebooks (08/09) are scoped scaffolds waiting
+for an owner; compose experiments continue in 10–12. Two commands on top of the
+training notebook:
 
 ```bash
 # improve the model in notebooks/04_train_improved.ipynb, then share your best:

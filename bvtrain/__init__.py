@@ -1,10 +1,12 @@
 """bvtrain — shared training/eval plumbing for the Botanical Vision notebooks.
 
-The notebooks (03 / 04 / 05 / 06) stay focused on what you actually customize: the
-model, the augmentation, the optimizer. Everything else lives here — environment
-detection, data loading, VRAM-aware batching + gradient accumulation, resumable
-checkpointing across local / Colab / Kaggle, the training loop, and evaluation
-(top-1/5 for classification; mean IoU for segmentation).
+The notebooks (03-12) stay focused on what you actually customize: the model, the
+augmentation, the optimizer. Everything else lives here — environment detection, data
+loading, VRAM-aware batching + gradient accumulation, resumable checkpointing across
+local / Colab / Kaggle, the training loop, and evaluation (top-1/5 for classification;
+mean IoU for segmentation). Compose domain primitives (plant palette, rule generator,
+layout metrics, plan drawing) live in `bvtrain.garden` — notebooks 10-12 import it as
+`from bvtrain import garden as g`.
 
 Classification (notebooks 03/04, eval 05):
 

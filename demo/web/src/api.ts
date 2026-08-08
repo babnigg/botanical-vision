@@ -1,7 +1,10 @@
 import type {
   ArrangeResponse,
   ClassifyResponse,
+  ComposeResponse,
   ModelsResponse,
+  ModuleState,
+  PaletteEntry,
   RegistrySummary,
   SpeciesReference,
 } from "./types";
@@ -35,6 +38,23 @@ export const api = {
 
   zone: (zip: string) =>
     fetch(`/api/zone/${zip}`).then(json<{ zip: string; zone: string }>),
+
+  composePalette: () =>
+    fetch("/api/compose/palette").then(
+      json<{ palette: PaletteEntry[]; status: ModuleState }>,
+    ),
+
+  compose: (body: {
+    width: number;
+    depth: number;
+    sun: number;
+    pins: { species: string; count: number }[];
+  }) =>
+    fetch("/api/compose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(json<ComposeResponse>),
 
   reference: (species: string) =>
     fetch(`/api/reference/${encodeURIComponent(species)}`).then(json<SpeciesReference>),

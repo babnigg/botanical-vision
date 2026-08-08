@@ -17,11 +17,15 @@ and CI were removed). The hard rules:
   Docker, or CI. Weights travel via the HF model repo, never git.
 - **`demo/` is a separate, self-contained app** (React + a minimal FastAPI that loads a
   checkpoint directly). Keep it decoupled — never make the notebooks or `share/` depend on it.
-- **Notebooks are the graded work.** 01/02 are maintainer-only (don't re-run); teammates
-  run 03 → 05. Model experiments go in `04_train_improved` (leave it be if it's mid-run).
+- **Notebooks are the graded work.** 01/02 are maintainer-only (don't re-run); classifier
+  work runs 03 → 05 (experiments in `04_train_improved`; leave it be if mid-run);
+  06 = detection, 07 = segmentation, 08/09 = stylize placeholders (owner tbd),
+  10–12 = compose (layout transformer, masked-diffusion completion, controlnet render).
 - **Notebook plumbing lives in `bvtrain/`** (env detection, data loading, resumable
   checkpointing across local/Colab/Kaggle, the training loop, eval). Keep the *model /
   augmentation / optimizer* in the notebook; put reusable machinery in `bvtrain/`. The
+  compose domain primitives (palette, rule generator, layout metrics, drawing) are
+  `bvtrain/garden.py` — the single source of truth for plant traits in 10–12. The
   notebooks bootstrap it by cloning the repo on Colab/Kaggle. Kaggle headless-run tooling
   is in `kaggle/` (see its README).
 - **Constants must match the notebooks:** ImageNet normalization

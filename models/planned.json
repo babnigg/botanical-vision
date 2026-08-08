@@ -6,7 +6,7 @@
       "name": "Plant trait table + zones",
       "module": "compose",
       "task": "data",
-      "metric": "~300 spp curated",
+      "metric": "~300 spp curated (16-spp seed shipped in bvtrain/garden.py)",
       "status": "planned"
     },
     {

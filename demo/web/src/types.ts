@@ -5,7 +5,7 @@ export type ModuleState = "live" | "partial" | "prototype";
 export interface ModelEntry {
   id: string;
   name: string;
-  module: ModuleKey;
+  module: ModuleKey | "stylize";
   task?: string;
   base?: string;
   metric?: string;
@@ -78,6 +78,37 @@ export interface ArrangeResponse {
   bloom_months: number[];
   live: boolean;
   note: string | null;
+}
+
+export interface PaletteEntry {
+  idx: number;
+  name: string;
+  layer: string;
+  h: number;
+  s: number;
+  sun: number;
+  color: string;
+}
+
+export interface ComposePlant {
+  species: string;
+  layer: string;
+  color: string;
+  h: number;
+  x: number;
+  y: number;
+  r: number;
+  pinned: boolean;
+}
+
+export interface ComposeResponse {
+  live: boolean;
+  served: "diffusion" | "rules";
+  bed: { w: number; d: number; sun: number; sun_name: string };
+  plants: ComposePlant[];
+  metrics: Record<string, number>;
+  ignored_pins: string[];
+  note?: string;
 }
 
 export interface ModelInfo {

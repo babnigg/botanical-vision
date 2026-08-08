@@ -66,6 +66,8 @@ def list_local() -> list[dict]:
             m = _local_meta(p)
         except Exception:
             continue
+        if not m["species"]:      # non-classifier checkpoints (e.g. garden_*) aren't identify models
+            continue
         out.append({"id": f"local:{Path(p).name}", "source": "local", "name": Path(p).stem,
                     "species": m["species"], "val_acc": m["val_acc"], "detail": f"{m['epochs']} epochs"})
     return _rank(out)

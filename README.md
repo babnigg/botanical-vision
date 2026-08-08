@@ -105,8 +105,9 @@ GPU option.
 
 ### Which notebooks do I run?
 
-Teammates run only **03 → 05** — they auto-load the dataset from Hugging Face, so you
-never need local data.
+Classifier work is **03 → 05**, segmentation is **07**, and the Compose notebooks
+**10 → 12** are optional — all of them auto-load what they need (dataset from Hugging
+Face, plans generated procedurally), so you never need local data.
 
 | Notebook | Who | What to do |
 | --- | --- | --- |

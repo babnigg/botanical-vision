@@ -1,6 +1,7 @@
-"""shared primitives for the compose notebooks (08-10): plant palette, rule
+"""shared primitives for the compose notebooks (10-12): plant palette, rule
 generator, metrics, plan drawing. models and tokenizers stay in the notebooks."""
 import math
+import os
 import random
 from collections import Counter
 from pathlib import Path
@@ -29,8 +30,8 @@ _P = [
     ("Ajuga reptans",         "groundcover",  10,  40, 0, "midnightblue"),
 ]
 PALETTE = [dict(zip(("name", "layer", "h", "s", "sun", "color"), p)) for p in _P]
-BY_LAYER = {l: [i for i, p in enumerate(PALETTE) if p["layer"] == l]
-            for l in ("structural", "seasonal", "filler", "groundcover")}
+BY_LAYER = {lay: [i for i, p in enumerate(PALETTE) if p["layer"] == lay]
+            for lay in ("structural", "seasonal", "filler", "groundcover")}
 HMAX = max(p["h"] for p in PALETTE)
 SUN_NAMES = ("shade", "part sun", "full sun")
 
@@ -47,15 +48,19 @@ def _fits(plan, x, y, r, w, d):
 
 def _drift(plan, i, n, w, d):
     # n of one species clustered on a random anchor, depth set by height
-    p = PALETTE[i]; r = p["s"] / 200
-    yc = d * (0.18 + 0.72 * p["h"] / HMAX); xc = random.uniform(r, w - r)
+    p = PALETTE[i]
+    r = p["s"] / 200
+    yc = d * (0.18 + 0.72 * p["h"] / HMAX)
+    xc = random.uniform(r, w - r)
     placed = 0
     for _ in range(n * 25):
         if placed == n:
             break
-        x = random.gauss(xc, r * 2.2); y = random.gauss(yc, max(r, d * 0.06))
+        x = random.gauss(xc, r * 2.2)
+        y = random.gauss(yc, max(r, d * 0.06))
         if _fits(plan, x, y, r, w, d):
-            plan.append((i, x, y, r)); placed += 1
+            plan.append((i, x, y, r))
+            placed += 1
     if 0 < placed < n:          # keep drifts odd — drop partials
         del plan[-placed:]
 
@@ -68,7 +73,9 @@ def gen_plan(w, d, sun=None):
         pool = [i for i in BY_LAYER[layer]
                 if sun is None or abs(PALETTE[i]["sun"] - sun) <= 1]
         fresh = [i for i in pool if i not in used]
-        i = random.choice(fresh or pool); used.add(i); return i
+        i = random.choice(fresh or pool)
+        used.add(i)
+        return i
 
     for _ in range(max(1, round(w / 3))):
         _drift(plan, pick("structural"), 1, w, d)
@@ -105,7 +112,8 @@ def m_overlap(plan):
     bad = tot = 0
     for a in range(len(plan)):
         for b in range(a + 1, len(plan)):
-            _, xa, ya, ra = plan[a]; _, xb, yb, rb = plan[b]
+            _, xa, ya, ra = plan[a]
+            _, xb, yb, rb = plan[b]
             tot += 1
             if math.hypot(xa - xb, ya - yb) < 0.75 * (ra + rb):
                 bad += 1
@@ -161,8 +169,12 @@ def show_plan(plan, w, d, ax, title="", pins=()):
         ax.add_patch(Circle((x, y), r, facecolor=PALETTE[i]["color"],
                             edgecolor="black" if pinned else "sienna",
                             lw=1.8 if pinned else 0.6, alpha=0.85))
-    ax.set_xlim(-0.2, w + 0.2); ax.set_ylim(-0.2, d + 0.2); ax.set_aspect("equal")
-    ax.set_title(title, fontsize=9); ax.set_xticks([]); ax.set_yticks([])
+    ax.set_xlim(-0.2, w + 0.2)
+    ax.set_ylim(-0.2, d + 0.2)
+    ax.set_aspect("equal")
+    ax.set_title(title, fontsize=9)
+    ax.set_xticks([])
+    ax.set_yticks([])
 
 
 def seg_image(plan, w, d, px=100, pad=0.5):
@@ -180,6 +192,15 @@ def seg_image(plan, w, d, px=100, pad=0.5):
 
 
 def ckpt_dir():
-    p = Path(__file__).resolve().parent.parent / "checkpoints"
-    p.mkdir(exist_ok=True)
+    # mirror train.checkpoint_dir: drive on colab, /kaggle/working on kaggle, ../checkpoints locally
+    try:
+        from google.colab import drive
+        drive.mount("/content/drive")
+        p = Path("/content/drive/MyDrive/botanical-vision/checkpoints")
+    except ImportError:
+        if os.environ.get("KAGGLE_KERNEL_RUN_TYPE"):
+            p = Path("/kaggle/working")
+        else:
+            p = Path(__file__).resolve().parent.parent / "checkpoints"
+    p.mkdir(parents=True, exist_ok=True)
     return p

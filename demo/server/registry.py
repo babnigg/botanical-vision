@@ -25,6 +25,9 @@ def _planned() -> list[dict]:
 
 
 def module_status(module: str) -> str:
+    if module == "compose":
+        from . import compose
+        return compose.status()
     if module == "identify":
         return "live" if classifier.active_id() else "prototype"
     return "prototype"
@@ -44,7 +47,7 @@ def summary() -> dict:
     models += _planned()
     return {
         "models": models,
-        "modules": {m: ("live" if module_status(m) == "live" else "prototype") for m in MODULES},
+        "modules": {m: module_status(m) for m in MODULES},
         "live_count": sum(1 for m in models if m["status"] == "live"),
         "total": len(models),
     }
