@@ -10,14 +10,6 @@
       "status": "planned"
     },
     {
-      "id": "arrange-engine",
-      "name": "Planting arrangement engine",
-      "module": "compose",
-      "task": "algorithm",
-      "metric": "rule + scoring",
-      "status": "planned"
-    },
-    {
       "id": "landscape-cn",
       "name": "Landscape render · ControlNet-seg",
       "module": "compose",

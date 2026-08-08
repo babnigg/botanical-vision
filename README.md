@@ -117,6 +117,7 @@ never need local data.
 | `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
 | `06_detect_subject` | optional | zero-shot YOLO subject localizer + Δtop-1 (see below) |
 | `07_train_segmentation` | everyone | distilled plant/background segmenter — feeds the classifier as a soft-mask preprocessor |
+| `08_garden_layout` | optional | generative planting-plan layout (Compose) — rule plans → layout transformer → ControlNet render |
 
 Training writes a `.pt` to `checkpoints/`. To share it with the team, run
 `python -m share.publish` (see *start here* above).
@@ -221,6 +222,19 @@ backend loads, Identify auto-picks the newest and shows the mask overlay; no
 selection UI needed. Nothing there = segmentation is a no-op, classifier runs
 unchanged.
 
+### Garden layout (Compose, optional)
+
+`notebooks/08_garden_layout.ipynb` starts the **Compose** module: generating a planting
+plan (which plants, where, how many) for a garden bed. Published generative garden design
+works in pixel space (pix2pix/GANs on ~100 scraped plan images); this treats a plan as a
+**layout** — (species, x, y, spread) tuples — the way LayoutTransformer/LayoutDM do. No
+planting-plan dataset exists, so plans are sampled from horticultural rules (taller in
+back, odd-count drifts, spacing from mature spread), and the same rules double as scoring
+metrics. The arc: random baseline → rule generator → a small (~1M-param) layout
+transformer trained on the rule plans, with grammar-constrained sampling. A final gated
+stage renders a plan through SD 1.5 + seg ControlNet (Colab-only; the conditioning image
+builds anywhere). Self-contained — it does not touch `bvtrain/` or the dataset.
+
 ### Rebuilding the dataset (maintainer only)
 
 Everything below regenerates the dataset from scratch and only needs to be run once
@@ -286,7 +300,8 @@ project/
 │   ├── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
 │   ├── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
 │   ├── 06_detect_subject.ipynb       # zero-shot YOLO subject localizer + Δtop-1 (optional)
-│   └── 07_train_segmentation.ipynb   # distilled plant/bg segmenter (DeepLabV3-MNv3)
+│   ├── 07_train_segmentation.ipynb   # distilled plant/bg segmenter (DeepLabV3-MNv3)
+│   └── 08_garden_layout.ipynb        # compose: planting-plan layout transformer + render (optional)
 ├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit · fit_seg)
 ├── share/                            # the team model-sharing loop (publish/leaderboard/score)
 ├── scripts/
