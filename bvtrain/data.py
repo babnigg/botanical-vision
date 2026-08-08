@@ -76,9 +76,20 @@ class _PlantSetLocal(Dataset):
         return len(self.df)
 
     def __getitem__(self, i):
+        import time
+
         from PIL import Image
         r = self.df.iloc[i]
-        return self.tf(Image.open(r["path"]).convert("RGB")), self.l[r["species"]]
+        # cloud-synced local data (OneDrive) can throw transient read errors under load
+        for attempt in range(3):
+            try:
+                img = Image.open(r["path"]).convert("RGB")
+                break
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.5 * (attempt + 1))
+        return self.tf(img), self.l[r["species"]]
 
 
 class _PlantSetHF(Dataset):
