@@ -1,7 +1,7 @@
 {
-  "id": "YOUR_KAGGLE_USERNAME/botanical-vision-train",
+  "id": "danielbabnigg/botanical-vision-train",
   "title": "Botanical Vision - train",
-  "code_file": "04_train_improved.ipynb",
+  "code_file": "03_train_classifier.ipynb",
   "language": "python",
   "kernel_type": "notebook",
   "is_private": true,
