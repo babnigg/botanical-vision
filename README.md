@@ -113,9 +113,10 @@ never need local data.
 | `01_eda_species` | maintainer only | **don't re-run** — rebuilds the species selection; read only |
 | `02_eda_images` | maintainer only | **don't re-run** — inventories raw images + writes the split; read only |
 | `03_train_classifier` | everyone | **run-only** baseline (fixed reference) — don't experiment here |
-| `04_train_improved` | everyone | **where model work goes** — all improvements live here |
+| `04_train_improved` | everyone | **where classifier work goes** — all classifier improvements live here |
 | `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
 | `06_detect_subject` | optional | zero-shot YOLO subject localizer + Δtop-1 (see below) |
+| `07_train_segmentation` | everyone | distilled plant/background segmenter — feeds the classifier as a soft-mask preprocessor |
 
 Training writes a `.pt` to `checkpoints/`. To share it with the team, run
 `python -m share.publish` (see *start here* above).
@@ -177,6 +178,48 @@ a box around the plant/flower subject in a photo — zero-shot, since the datase
 bounding-box labels to fine-tune a detector on. It reports **Δtop-1** (does cropping to the
 localized subject change a trained classifier's accuracy?) on a small streamed sample
 instead of IoU/mAP, which need ground-truth boxes this dataset doesn't have.
+
+### Segmentation (background masking → Δtop-1)
+
+An optional preprocessing stage that isolates the plant from its background
+before the classifier sees it. Two shipped uses:
+
+1. **Preprocess for the classifier.** A soft-mask (Gaussian-blur the background,
+   don't hard-mask — hard-mask is out of the classifier's training distribution
+   and hurts top-1). Measured with `python scripts/measure_delta_top1.py` on the
+   shared test split.
+2. **UX overlay** in the demo's Identify tab — the mask is returned as a base64
+   PNG in the classify response and rendered as a toggleable overlay.
+
+**Approach:** teacher–student distillation. FastSAM generates pseudo-masks over
+a stratified 20K subset of the train split; a small student
+(DeepLabV3 + MobileNetV3-Large, ~11 MB) is trained on those masks and is what
+the demo actually deploys.
+
+**Pipeline:**
+
+```
+HF source split  ─►  scripts/generate_pseudo_masks.py  ─►  <you>/botanical-vision-256-masks  ─►  notebooks/07_train_segmentation.ipynb  ─►  checkpoints/deeplabv3_mnv3_seg_best.pt
+                    (FastSAM, maintainer only)               (companion HF dataset)               (student, run anywhere; resumable)
+```
+
+**Teammates:** open `notebooks/07_train_segmentation.ipynb`, set
+`hf_masks_repo` in the `bv.setup(...)` call, and run — the notebook auto-loads
+the masks from Hugging Face just like 03/04 do for images.
+
+**Maintainer only (regenerate masks):**
+
+```bash
+pip install ultralytics    # FastSAM teacher weights
+python scripts/generate_pseudo_masks.py \
+    --repo <you>/botanical-vision-256-masks \
+    --n-train 20000 --n-val 1000 --n-test 1000
+```
+
+**Demo integration.** If `checkpoints/*_seg_best.pt` exists when the demo
+backend loads, Identify auto-picks the newest and shows the mask overlay; no
+selection UI needed. Nothing there = segmentation is a no-op, classifier runs
+unchanged.
 
 ### Rebuilding the dataset (maintainer only)
 
@@ -242,12 +285,15 @@ project/
 │   ├── 03_train_classifier.ipynb     # ResNet-50 baseline (fixed reference)
 │   ├── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
 │   ├── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
-│   └── 06_detect_subject.ipynb       # zero-shot YOLO subject localizer + Δtop-1 (optional)
-├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit)
+│   ├── 06_detect_subject.ipynb       # zero-shot YOLO subject localizer + Δtop-1 (optional)
+│   └── 07_train_segmentation.ipynb   # distilled plant/bg segmenter (DeepLabV3-MNv3)
+├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit · fit_seg)
 ├── share/                            # the team model-sharing loop (publish/leaderboard/score)
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
-│   └── upload_to_hf.py               # publish dataset to Hugging Face
+│   ├── upload_to_hf.py               # publish dataset to Hugging Face
+│   ├── generate_pseudo_masks.py      # FastSAM → masks companion HF dataset (maintainer)
+│   └── measure_delta_top1.py         # Δtop-1 with/without seg preprocessing
 ├── checkpoints/                      # training scratch (gitignored)
 ├── models/planned.json              # roadmap rows for models not yet built
 ├── demo/                            # separate showcase app (React + minimal FastAPI)

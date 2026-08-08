@@ -10,5 +10,5 @@ torchvision>=0.18
 scikit-learn
 datasets
 huggingface_hub
-ultralytics       # YOLO subject localizer (notebook 06)
+ultralytics       # YOLO subject localizer (nb 06) + FastSAM mask teacher (maintainer script)
 # jupyter / jupyterlab assumed already installed; install separately if needed

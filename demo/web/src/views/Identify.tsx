@@ -17,6 +17,7 @@ export default function Identify() {
   const [torch, setTorch] = useState<boolean | null>(null);
   const [ref, setRef] = useState<SpeciesReference | null>(null);
   const [refLoading, setRefLoading] = useState(false);
+  const [showMask, setShowMask] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function Identify() {
     setFile(f);
     setRemoteUrl("");
     setRes(null);
+    setShowMask(true);
     swapPreview(URL.createObjectURL(f));
   }
   async function pullRandom() {
@@ -55,6 +57,7 @@ export default function Identify() {
         setFile(null);
         setRemoteUrl(r.url);
         setRes(null);
+        setShowMask(true);
         swapPreview(r.url);
       }
     } finally {
@@ -65,6 +68,7 @@ export default function Identify() {
     setFile(null);
     setRemoteUrl("");
     setRes(null);
+    setShowMask(true);
     swapPreview("");
   }
 
@@ -131,6 +135,19 @@ export default function Identify() {
           ) : (
             <div className="preview">
               <img src={preview} alt="plant to identify" />
+              {res?.mask_png_b64 && showMask && (
+                <img className="mask-overlay" src={res.mask_png_b64} alt="segmentation mask" />
+              )}
+              {res?.mask_png_b64 && (
+                <button
+                  className="mask-toggle"
+                  onClick={() => setShowMask((v) => !v)}
+                  title={showMask ? "Hide segmentation mask" : "Show segmentation mask"}
+                  aria-pressed={showMask}
+                >
+                  {showMask ? "hide mask" : "show mask"}
+                </button>
+              )}
               <button className="clearbtn" onClick={clearPhoto} title="Remove photo" aria-label="Remove photo">×</button>
             </div>
           )}
