@@ -136,16 +136,16 @@ and reporting top-1 / top-5 accuracy:
 Both have an `N_SPECIES` toggle — set it to an int (e.g. 100) for a quick run, or
 leave it `None` to train on all species (a multi-hour run on the full dataset).
 
-**Resumable training.** Both save full state (model, optimizer, scheduler, epoch,
-step, best-val, history) every `CKPT_EVERY` steps and write two checkpoints per run:
-`{RUN_NAME}_last.pt` (rolling) and `{RUN_NAME}_best.pt` (best val). On restart they
-auto-resume from `_last.pt` if its config signature matches the current setup — even
-mid-epoch — so a long run survives interruptions. A changed config (species count,
-epochs) starts fresh; set `FRESH = True` to force a fresh run. On **Google Colab**,
-local disk is wiped on disconnect, so mount Drive and point `CKPT_DIR` at a Drive
-path (the checkpoint cell shows how) or your progress won't survive.
+**Resumable training.** `bv.fit()` saves full state (model, optimizer, scheduler,
+epoch, step, best-val, history) every `ckpt_every` steps and writes two checkpoints
+per run: `{run_name}_last.pt` (rolling) and `{run_name}_best.pt` (best val). On
+restart it auto-resumes from `_last.pt` if its config signature matches the current
+setup — even mid-epoch — so a long run survives interruptions. A changed config
+(species count, epochs) starts fresh; pass `fresh=True` to force a fresh run. On
+**Google Colab**, `bv.checkpoint_dir()` mounts Drive and checkpoints there
+automatically, so progress survives disconnects.
 
-`05_evaluate.ipynb` loads `{RUN_NAME}_best.pt` — set `CHECKPOINT` there to the model
+`05_evaluate.ipynb` loads `{run_name}_best.pt` — set `CHECKPOINT` there to the model
 you want to evaluate.
 
 ### Running on Google Colab

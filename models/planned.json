@@ -2,14 +2,6 @@
   "_comment": "Roadmap rows for models/tools not yet built. When one ships, drop its row. Trained classifiers are shared via the HF model repo (see share/), not tracked here.",
   "models": [
     {
-      "id": "subject-localizer",
-      "name": "Subject detect + segment · Localize",
-      "module": "identify",
-      "task": "detection/segmentation",
-      "metric": "IoU · mAP · Δtop-1",
-      "status": "planned"
-    },
-    {
       "id": "trait-table",
       "name": "Plant trait table + zones",
       "module": "compose",

@@ -5,4 +5,4 @@
 *.ipynb -text
 *.csv text eol=lf
 
-# Model weights live in the MLflow registry, not git — see models/README.md.
+# Model weights live in the shared HF model repo (see share/), not git.
