@@ -10,11 +10,11 @@
       "status": "planned"
     },
     {
-      "id": "landscape-cn",
-      "name": "Landscape render · ControlNet-seg",
-      "module": "compose",
-      "task": "generation",
-      "metric": "SD 1.5 + seg",
+      "id": "stylize",
+      "name": "Stylize \u00b7 classify-retrieve-generate",
+      "module": "stylize",
+      "task": "style transfer / retrieval-augmented generation",
+      "metric": "ssim \u00b7 clip style \u00b7 species-fidelity",
       "status": "planned"
     }
   ]

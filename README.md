@@ -117,7 +117,11 @@ never need local data.
 | `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
 | `06_detect_subject` | optional | zero-shot YOLO subject localizer + Δtop-1 (see below) |
 | `07_train_segmentation` | everyone | distilled plant/background segmenter — feeds the classifier as a soft-mask preprocessor |
-| `08_garden_layout` | optional | generative planting-plan layout (Compose) — rule plans → layout transformer → ControlNet render |
+| `08_style_baseline` | placeholder | Stylize baseline — neural style transfer (scope only, owner tbd) |
+| `09_style_retrieval` | placeholder | Stylize enhanced — classify → retrieve → generate artwork (scope only, owner tbd) |
+| `10_garden_layout` | optional | Compose — rule-generated planting plans + autoregressive layout transformer |
+| `11_complete_layout` | optional | Compose — masked-diffusion completion (pin toolbox plants, infill the rest; sun-conditioned) |
+| `12_render_plan` | optional | Compose — seg-ControlNet render of any plan (zero training) |
 
 Training writes a `.pt` to `checkpoints/`. To share it with the team, run
 `python -m share.publish` (see *start here* above).
@@ -222,18 +226,42 @@ backend loads, Identify auto-picks the newest and shows the mask overlay; no
 selection UI needed. Nothing there = segmentation is a no-op, classifier runs
 unchanged.
 
+### Stylize (placeholders, owner tbd)
+
+`08_style_baseline` and `09_style_retrieval` scope the planned **Stylize** module (photo →
+artwork). 08 is the floor: plain neural style transfer (VGG-19 Gatys — the Assignment-3
+technique). 09 is the point: **classify → retrieve → generate** — use the shared
+classifier to identify the species, retrieve conspecific exemplars from an embedding
+index (the image-search pattern), and condition generation on them so the artwork stays
+botanically faithful, scored partly by whether the classifier still recognizes it. Both
+are markdown scaffolds with todo cells — nothing is built yet.
+
 ### Garden layout (Compose, optional)
 
-`notebooks/08_garden_layout.ipynb` starts the **Compose** module: generating a planting
-plan (which plants, where, how many) for a garden bed. Published generative garden design
+Notebooks 10–12 build the **Compose** module: generate a planting plan (which plants,
+where, how many) for a garden bed, then render it. Published generative garden design
 works in pixel space (pix2pix/GANs on ~100 scraped plan images); this treats a plan as a
 **layout** — (species, x, y, spread) tuples — the way LayoutTransformer/LayoutDM do. No
 planting-plan dataset exists, so plans are sampled from horticultural rules (taller in
-back, odd-count drifts, spacing from mature spread), and the same rules double as scoring
-metrics. The arc: random baseline → rule generator → a small (~1M-param) layout
-transformer trained on the rule plans, with grammar-constrained sampling. A final gated
-stage renders a plan through SD 1.5 + seg ControlNet (Colab-only; the conditioning image
-builds anywhere). Self-contained — it does not touch `bvtrain/` or the dataset.
+back, odd-count drifts, spacing from mature spread), and the same rules double as the
+scoring metrics. Shared primitives (palette, rule generator, metrics, drawing) live in
+`bvtrain/garden.py`; each notebook trains locally in minutes with live progress bars.
+
+- **`10_garden_layout`** — random dummy baseline → rule generator → a ~1M-param
+  autoregressive layout transformer with grammar-constrained sampling. Scores: random
+  0.63 < transformer 0.76 < rules 0.92. Two structural limits found: no arbitrary
+  pinning (prefix-only conditioning) and drifts don't stay odd.
+- **`11_complete_layout`** — swaps in **masked discrete diffusion** (absorbing-state,
+  MaskGIT-style confidence unmasking): a bidirectional transformer over a fixed plan
+  canvas. Enables the real Compose interaction — pin toolbox species anywhere, the model
+  infills placement and companions — and adds **sun** as a site condition (learned
+  perfectly, 1.00 compliance). Overall 0.78; drift parity remains the open problem.
+  Training is checkpointed and resumable (`checkpoints/garden_maskdiff_{last,best}.pt`).
+- **`12_render_plan`** — a plan is already a segmentation map, so SD 1.5 +
+  `control_v11p_sd15_seg` renders it with zero training (~2–4 min/image on a 4 GB GPU
+  via CPU offload, ~10 s on a T4). Includes the conditioning-scale ablation and a
+  CLIP-scored style comparison. Only future style-LoRA / custom-ControlNet *training*
+  needs Colab.
 
 ### Rebuilding the dataset (maintainer only)
 
@@ -301,8 +329,12 @@ project/
 │   ├── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
 │   ├── 06_detect_subject.ipynb       # zero-shot YOLO subject localizer + Δtop-1 (optional)
 │   ├── 07_train_segmentation.ipynb   # distilled plant/bg segmenter (DeepLabV3-MNv3)
-│   └── 08_garden_layout.ipynb        # compose: planting-plan layout transformer + render (optional)
-├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit · fit_seg)
+│   ├── 08_style_baseline.ipynb       # stylize baseline scaffold (placeholder)
+│   ├── 09_style_retrieval.ipynb      # stylize classify→retrieve→generate scaffold (placeholder)
+│   ├── 10_garden_layout.ipynb        # compose: rule plans + AR layout transformer
+│   ├── 11_complete_layout.ipynb      # compose: masked-diffusion completion (pin + infill)
+│   └── 12_render_plan.ipynb          # compose: seg-controlnet render of any plan
+├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit · fit_seg · garden)
 ├── share/                            # the team model-sharing loop (publish/leaderboard/score)
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
