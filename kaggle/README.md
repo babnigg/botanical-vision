@@ -29,5 +29,7 @@ A Kaggle GPU session is ~9–12 h. If a run doesn't finish, continue it:
 
 ## Notes
 - GPU + Internet are enabled via `kernel-metadata.json` — don't remove those.
+- `"machine_shape": "NvidiaTeslaT4"` is required: Kaggle's default P100 is no longer
+  supported by modern PyTorch (sm_60 dropped — "no kernel image" CUDA error).
 - To train the baseline instead, set `"code_file"` to `03_train_classifier.ipynb`.
 - The notebook's bootstrap clones a **public** GitHub repo; a private repo would need a token.
