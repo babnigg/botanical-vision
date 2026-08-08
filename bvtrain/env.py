@@ -26,12 +26,16 @@ def setup(hf_repo: str = "dbabnigg/botanical-vision-256",
           hf_masks_repo: str | None = None,
           data_path: str = "../data/splits.csv") -> Env:
     """Detect device + platform. Uses local data if present, else the HF dataset."""
-    try:
-        import google.colab  # noqa: F401
-        on_colab = True
-    except ImportError:
-        on_colab = False
+    # kaggle first: its image also ships google.colab, so import-based colab
+    # detection false-positives there (checkpoints would silently go to /content)
     on_kaggle = os.environ.get("KAGGLE_KERNEL_RUN_TYPE") is not None
+    on_colab = not on_kaggle and os.environ.get("COLAB_RELEASE_TAG") is not None
+    if not on_kaggle and not on_colab:
+        try:
+            import google.colab  # noqa: F401
+            on_colab = True
+        except ImportError:
+            pass
     use_local = Path(data_path).exists()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = Env(device, on_colab, on_kaggle, use_local, hf_repo, hf_masks_repo)
