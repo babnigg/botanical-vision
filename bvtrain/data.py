@@ -67,13 +67,38 @@ def load_data(env, n_species=None, data_dir: str = "../data") -> Data:
 
 
 class _PlantSetLocal(Dataset):
-    def __init__(self, df, tf, label2idx):
+    def __init__(self, df, tf, label2idx, mask_dir=None, bg_aug_p=0.0):
         self.df = df.reset_index(drop=True)
         self.tf = tf
         self.l = label2idx
+        # background-blur augmentation: with prob bg_aug_p, gaussian-blur the
+        # background using a precomputed plant mask (same soft-mask the demo
+        # applies), so background-invariance is learned in-distribution.
+        # masks live in mask_dir as <md5-of-path>.png (scripts/precompute_student_masks.py)
+        self.mask_dir = mask_dir
+        self.bg_aug_p = bg_aug_p
 
     def __len__(self):
         return len(self.df)
+
+    def _bg_blur(self, img, path):
+        import hashlib
+        import random as _random
+
+        import numpy as np
+        from PIL import Image, ImageFilter
+        if self.mask_dir is None or _random.random() >= self.bg_aug_p:
+            return img
+        mp = self.mask_dir / (hashlib.md5(str(path).encode()).hexdigest() + ".png")
+        if not mp.exists():
+            return img
+        mask = Image.open(mp).convert("L").resize(img.size)
+        m = np.asarray(mask, dtype=np.float32)[..., None] / 255.0
+        if m.mean() > 0.98:            # all-plant mask = nothing to blur
+            return img
+        blurred = img.filter(ImageFilter.GaussianBlur(15))
+        out = np.asarray(img) * m + np.asarray(blurred) * (1 - m)
+        return Image.fromarray(out.astype("uint8"))
 
     def __getitem__(self, i):
         import time
@@ -89,6 +114,7 @@ class _PlantSetLocal(Dataset):
                 if attempt == 2:
                     raise
                 time.sleep(0.5 * (attempt + 1))
+        img = self._bg_blur(img, r["path"])
         return self.tf(img), self.l[r["species"]]
 
 
@@ -106,9 +132,11 @@ class _PlantSetHF(Dataset):
         return self.tf(ex["image"].convert("RGB")), self.l[ex["species"]]
 
 
-def _make_ds(data: Data, split: str, tf):
+def _make_ds(data: Data, split: str, tf, mask_dir=None, bg_aug_p=0.0):
     if data._local_splits is not None:
-        return _PlantSetLocal(data._local_splits[data._local_splits["split"] == split], tf, data.label2idx)
+        return _PlantSetLocal(data._local_splits[data._local_splits["split"] == split], tf, data.label2idx,
+                              mask_dir=mask_dir if split == "train" else None,
+                              bg_aug_p=bg_aug_p if split == "train" else 0.0)
     return _PlantSetHF(data._hf[split], tf, data.label2idx)
 
 
@@ -130,7 +158,8 @@ class Loaders:
         return len(self.labels)
 
 
-def build_loaders(data: Data, train_tf, env, eval_tf=None, effective_batch: int = 64) -> Loaders:
+def build_loaders(data: Data, train_tf, env, eval_tf=None, effective_batch: int = 64,
+                  mask_dir=None, bg_aug_p: float = 0.0) -> Loaders:
     """Build val/test loaders + a train dataset, with a VRAM-sized batch.
 
     Small cards (a 4 GB laptop GPU) don't OOM on Windows — they silently spill to shared
@@ -138,7 +167,7 @@ def build_loaders(data: Data, train_tf, env, eval_tf=None, effective_batch: int 
     and gradient accumulation keeps the *effective* batch at `effective_batch` everywhere.
     """
     eval_tf = eval_tf or eval_transforms()
-    train_ds = _make_ds(data, "train", train_tf)
+    train_ds = _make_ds(data, "train", train_tf, mask_dir=mask_dir, bg_aug_p=bg_aug_p)
     val_ds = _make_ds(data, "val", eval_tf)
     test_ds = _make_ds(data, "test", eval_tf)
 

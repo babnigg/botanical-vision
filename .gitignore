@@ -59,3 +59,5 @@ Thumbs.db
 
 # collected real drawings (licensed images stay out of git)
 /data/real_plans/
+/data/student_masks/
+/data/pseudo_masks/
