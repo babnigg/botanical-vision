@@ -9,8 +9,20 @@ by species, sourced from citizen-science observations on iNaturalist.
 
 ## What we're actually doing (start here)
 
-This is a **computer-vision class**, so the only work that matters is **making the model
-better**. The whole loop is three steps, and only the middle one is really yours:
+This is a **computer-vision class**. The project is **two pillars**:
+
+1. **The classification pipeline** — the fine-grained classifier plus everything
+   attached to it: the detection experiment (06), the segmentation experiment (07),
+   and the planned **Stylize** layer (08/09: classify → retrieve conspecifics →
+   generate new art *of that species*, beyond simple style transfer).
+2. **The landscape generator** — Compose (10–14): symbolic planting-plan generation,
+   decode-time search, ControlNet rendering, and a real-drawings labeling pipeline.
+
+Negative results are kept and reported (e.g., subject-cropping hurts top-1 — measured);
+the course rewards documented iteration, not just wins.
+
+For the classifier pillar, the loop is three steps, and only the middle one is really
+yours:
 
 1. **Get the data** — one line; it's already on Hugging Face, you never scrape anything.
 2. **Improve the model** — iterate in `notebooks/04_train_improved.ipynb`.
