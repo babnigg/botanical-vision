@@ -83,6 +83,7 @@ export interface ArrangeResponse {
 export interface PaletteEntry {
   idx: number;
   name: string;
+  common?: string;
   layer: string;
   h: number;
   s: number;
@@ -92,6 +93,7 @@ export interface PaletteEntry {
 
 export interface ComposePlant {
   species: string;
+  common?: string;
   layer: string;
   color: string;
   h: number;

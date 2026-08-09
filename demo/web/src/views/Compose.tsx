@@ -190,7 +190,7 @@ export default function Compose() {
                       title={`${p.h} cm · ${SUN_NAMES[p.sun]}`}
                     >
                       <i style={{ background: p.color }} />
-                      <span className="binom">{p.name}</span>
+                      <span className="binom" title={p.name}>{p.common ?? p.name}</span>
                       {pins[p.name] ? <b>×{pins[p.name]}</b> : null}
                       {inToolbox.has(p.name) ? <em title="in your toolbox">★</em> : null}
                     </button>
@@ -245,7 +245,7 @@ export default function Compose() {
                       strokeWidth={p.pinned ? 0.04 : 0.015}
                     >
                       <title>
-                        {p.species} ({p.layer})
+                        {p.common ? `${p.common} — ${p.species}` : p.species} ({p.layer})
                       </title>
                     </circle>
                   ))}

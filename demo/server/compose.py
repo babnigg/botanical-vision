@@ -114,7 +114,8 @@ def status() -> str:
 
 
 def palette() -> list[dict]:
-    return [dict(p, idx=i) for i, p in enumerate(garden().PALETTE)]
+    # slice to the model vocab — v3 palette additions aren't in this checkpoint
+    return [dict(p, idx=i) for i, p in enumerate(garden().PALETTE[:NSP])]
 
 
 def _site_tokens(w, d, sun):
@@ -216,7 +217,8 @@ def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
         note = "layout model checkpoint not found — serving the rule generator; pins not placed"
 
     pinned = {g.PALETTE[i]["name"] for i, _ in pin_list} if model is not None else set()
-    plants = [{"species": g.PALETTE[i]["name"], "layer": g.PALETTE[i]["layer"],
+    plants = [{"species": g.PALETTE[i]["name"], "common": g.PALETTE[i]["common"],
+               "layer": g.PALETTE[i]["layer"],
                "color": g.PALETTE[i]["color"], "h": g.PALETTE[i]["h"],
                "x": round(x, 3), "y": round(y, 3), "r": round(r, 3),
                "pinned": g.PALETTE[i]["name"] in pinned}

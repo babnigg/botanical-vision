@@ -15,8 +15,9 @@ This is a **computer-vision class**. The project is **two pillars**:
    attached to it: the detection experiment (06), the segmentation experiment (07),
    and the planned **Stylize** layer (08/09: classify → retrieve conspecifics →
    generate new art *of that species*, beyond simple style transfer).
-2. **The landscape generator** — Compose (10–14): symbolic planting-plan generation,
-   decode-time search, ControlNet rendering, and a real-drawings labeling pipeline.
+2. **The landscape generator** — Compose (10–15): symbolic planting-plan generation,
+   decode-time search, ControlNet rendering, real-plan harvesting (pixel labeling +
+   structured permapeople plans), and a literature-grounded metric suite.
 
 Negative results are kept and reported (e.g., subject-cropping hurts top-1 — measured);
 the course rewards documented iteration, not just wins.
@@ -137,6 +138,7 @@ Face, plans generated procedurally), so you never need local data.
 | `12_render_plan` | optional | Compose — seg-ControlNet render of any plan (zero training) |
 | `13_refine_layout` | optional | Compose — designed corpus, count-token conditioning, best-of-N + repair decoding |
 | `14_real_plans` | optional | Compose — label real drawings (Hough+edge verification) → transfer pretraining |
+| `15_layered_layout` | optional | Compose — layered corpus (strata/drift/rhythm), literature metrics, real-plan calibration |
 
 Training writes a `.pt` to `checkpoints/`. To share it with the team, run
 `python -m share.publish` (see *start here* above).
@@ -296,6 +298,18 @@ scoring metrics. Shared primitives (palette, rule generator, metrics, drawing) l
   a density gate that correctly rejects off-genre engravings) converts circle-symbol
   planting plans into canvases, size-pseudo-labeled. Drop collected drawings into
   `data/real_plans/` (not committed); transfer pretraining arms itself at ≥ 20 plans.
+- **`15_layered_layout`** — iteration 4: representation + metrics rebuilt from planting
+  design literature before retraining. Plans become **strata** (groundcover carpets the
+  bed under taller layers — Rainer & West's layer shares), drifts are elongated,
+  oblique, and interlocking (Jekyll) with a theme plant repeated at quasi-regular
+  intervals (Oudolf). `score3` is deliberately *not* the generator's rules restated:
+  form/texture adjacency (UF/IFAS), min-over-season interest, Moon–Spencer hue harmony,
+  per-species clustering (Ripley's K). Calibration on ~330 **structured permapeople.org
+  plans** (`scripts/harvest_permapeople.py` → coordinates + species, no pixel
+  extraction; `scripts/permapeople_plans.py` parses + scores them): designed ornamental
+  beds score 0.67–0.81 vs 0.47 corpus mean, so the suite ranks real design quality —
+  the anti-circularity fix 13/14 lacked. Palette 16 → 21 species (appended; old
+  checkpoints keep their indices) with `form`/`tex`/`persist` traits + common names.
 
 ### Rebuilding the dataset (maintainer only)
 
@@ -367,14 +381,21 @@ project/
 │   ├── 09_style_retrieval.ipynb      # stylize classify→retrieve→generate scaffold (placeholder)
 │   ├── 10_garden_layout.ipynb        # compose: rule plans + AR layout transformer
 │   ├── 11_complete_layout.ipynb      # compose: masked-diffusion completion (pin + infill)
-│   └── 12_render_plan.ipynb          # compose: seg-controlnet render of any plan
+│   ├── 12_render_plan.ipynb          # compose: seg-controlnet render of any plan
+│   ├── 13_refine_layout.ipynb        # compose: designed corpus + count tokens + best-of-N
+│   ├── 14_real_plans.ipynb           # compose: hough-labeled real drawings → transfer
+│   └── 15_layered_layout.ipynb       # compose: layered corpus + literature metrics + calibration
 ├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit · fit_seg · garden)
 ├── share/                            # the team model-sharing loop (publish/leaderboard/score)
 ├── scripts/
 │   ├── download_inaturalist.py       # resumable, threaded downloader
 │   ├── upload_to_hf.py               # publish dataset to Hugging Face
 │   ├── generate_pseudo_masks.py      # FastSAM → masks companion HF dataset (maintainer)
-│   └── measure_delta_top1.py         # Δtop-1 with/without seg preprocessing
+│   ├── measure_delta_top1.py         # Δtop-1 with/without seg preprocessing
+│   ├── precompute_student_masks.py   # student masks for the BG_AUG training augmentation
+│   ├── harvest_real_plans.py         # crawl publisher plan drawings → data/real_plans/
+│   ├── harvest_permapeople.py        # structured community plans → data/permapeople/
+│   └── permapeople_plans.py          # parse + score real plans (metric calibration)
 ├── checkpoints/                      # training scratch (gitignored)
 ├── models/planned.json              # roadmap rows for models not yet built
 ├── demo/                            # separate showcase app (React + minimal FastAPI)
