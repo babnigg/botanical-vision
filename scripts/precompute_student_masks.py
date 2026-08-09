@@ -31,7 +31,7 @@ OUT = PROJECT_DIR / "data" / "student_masks"
 def load_student(path: str, dev):
     from torchvision.models.segmentation import deeplabv3_mobilenet_v3_large
     ck = torch.load(path, map_location=dev, weights_only=False)
-    model = deeplabv3_mobilenet_v3_large(weights=None, num_classes=21)
+    model = deeplabv3_mobilenet_v3_large(weights=None, num_classes=21, aux_loss=True)
     model.classifier[4] = torch.nn.Conv2d(256, 1, 1)
     state = ck.get("model", ck.get("state_dict", ck))
     model.load_state_dict(state)
