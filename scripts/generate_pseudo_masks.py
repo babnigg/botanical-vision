@@ -80,19 +80,46 @@ def stratified_indices(species_col: list[str], n: int, seed: int = 42) -> list[i
     return picked[:n]
 
 
-def _pick_center_mask(masks: np.ndarray, h: int, w: int) -> np.ndarray | None:
-    """FastSAM in "everything" mode returns many candidate masks. Pick the
-    largest one that includes the image center (plant is almost always framed
-    at the center in iNat photos); fall back to the largest mask overall."""
+def _pick_plant_mask(masks: np.ndarray, img: PILImage.Image) -> np.ndarray | None:
+    """Score every candidate: soft center-box coverage x size prior (peak ~0.35,
+    reject near-full-frame) x color distinctiveness from the image border (a
+    background proxy). Then union in masks that sit mostly inside the winner's
+    bbox, so multi-bloom plants keep all their parts. Replaces the original
+    largest-mask-containing-center-pixel rule, which grabbed rocks, skies and
+    single petals on cluttered iNat photos (audited 2026-08-09)."""
     if masks.size == 0:
         return None
-    cy, cx = h // 2, w // 2
-    center_hits = [i for i in range(len(masks)) if masks[i, cy, cx] > 0]
-    if center_hits:
-        areas = [(masks[i] > 0).sum() for i in center_hits]
-        return masks[center_hits[int(np.argmax(areas))]]
-    areas = [(masks[i] > 0).sum() for i in range(len(masks))]
-    return masks[int(np.argmax(areas))]
+    h, w = masks.shape[1], masks.shape[2]
+    small = np.asarray(img.resize((w, h)), dtype=np.float32)
+    border = np.concatenate([small[0], small[-1], small[:, 0], small[:, -1]])
+    border_mean = border.mean(0)
+    cy0, cy1 = int(h * 0.375), int(h * 0.625)
+    cx0, cx1 = int(w * 0.375), int(w * 0.625)
+    best, best_score = None, -1.0
+    for m in masks:
+        mb = m > 0
+        area = mb.mean()
+        if area > 0.92 or area < 0.01:
+            continue
+        center_cov = mb[cy0:cy1, cx0:cx1].mean()
+        if center_cov < 0.05:
+            continue
+        size_w = max(1.0 - abs(area - 0.35) / 0.65, 0.05)
+        dist = np.linalg.norm(small[mb].mean(0) - border_mean) / 255.0
+        score = center_cov * size_w * (0.35 + dist)
+        if score > best_score:
+            best_score, best = score, mb
+    if best is None:
+        return None
+    ys, xs = np.where(best)
+    bbox = np.zeros_like(best)
+    bbox[ys.min():ys.max() + 1, xs.min():xs.max() + 1] = True
+    uni = best.copy()
+    for m in masks:
+        mb = m > 0
+        if mb.mean() < 0.92 and (mb & bbox).sum() > 0.7 * mb.sum():
+            uni |= mb
+    return uni
 
 
 def segment_one(teacher, img: PILImage.Image) -> PILImage.Image:
@@ -103,7 +130,7 @@ def segment_one(teacher, img: PILImage.Image) -> PILImage.Image:
     if r0 is None or r0.masks is None or r0.masks.data is None:
         return PILImage.new("L", (w, h), 255)   # nothing detected -> everything = plant
     masks = r0.masks.data.cpu().numpy()          # (N, H', W')
-    picked = _pick_center_mask(masks, masks.shape[1], masks.shape[2])
+    picked = _pick_plant_mask(masks, img)
     if picked is None:
         return PILImage.new("L", (w, h), 255)
     m = (picked > 0).astype(np.uint8) * 255
