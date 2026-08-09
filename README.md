@@ -204,15 +204,19 @@ instead of IoU/mAP, which need ground-truth boxes this dataset doesn't have.
 
 ### Segmentation (background masking → Δtop-1)
 
-An optional preprocessing stage that isolates the plant from its background
-before the classifier sees it. Two shipped uses:
+A distilled plant/background segmenter, originally intended as a preprocessing
+stage for the classifier. **The measurement is in, and it's a negative result**
+(`scripts/measure_delta_top1.py`, n=3000, full-vocabulary classifier,
+2026-08-09): soft-mask preprocessing costs **−31.8pp top-1 / −39.3pp top-5** —
+the mask geometry always blurs the crop periphery and under-covering masks blur
+plant matter, so the classifier loses signal it trained on. Together with the
+detection result (cropping: −4pp), inference-time subject isolation is now
+measured twice and rejected twice; background-invariance belongs in *training*
+augmentation instead (see `04_train_improved`'s `BG_AUG` toggle).
 
-1. **Preprocess for the classifier.** A soft-mask (Gaussian-blur the background,
-   don't hard-mask — hard-mask is out of the classifier's training distribution
-   and hurts top-1). Measured with `python scripts/measure_delta_top1.py` on the
-   shared test split.
-2. **UX overlay** in the demo's Identify tab — the mask is returned as a base64
-   PNG in the classify response and rendered as a toggleable overlay.
+What ships: the **UX overlay** in the demo's Identify tab — the mask is returned
+as a base64 PNG and rendered as a toggleable "what the model attends to" overlay,
+while the classifier always sees the original image.
 
 **Approach:** teacher–student distillation. FastSAM generates pseudo-masks over
 a stratified 20K subset of the train split; a small student

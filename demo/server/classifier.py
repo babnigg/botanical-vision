@@ -329,7 +329,9 @@ def predict(image_bytes: bytes | None, sample: str | None = None) -> dict:
             probs = seg(img)                                        # 224x224 in [0, 1]
             alpha = _mask_to_original(probs, img.size[0], img.size[1])
             mask_b64 = _mask_png_b64(alpha)
-            img = _apply_soft_mask(img, alpha)                      # classifier sees masked img
+            # overlay-only: measured 2026-08-09 (scripts/measure_delta_top1.py, n=3000,
+            # full-vocab classifier): soft-mask preprocessing costs -31.8pp top-1 —
+            # the classifier always sees the ORIGINAL image; the mask is visualization
         rows = _predictor(img)
         top = [_decorate(n, c) for n, c in rows]
     except Exception:
