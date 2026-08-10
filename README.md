@@ -213,8 +213,14 @@ stage for the classifier. **The measurement is in, and it's a negative result**
 the mask geometry always blurs the crop periphery and under-covering masks blur
 plant matter, so the classifier loses signal it trained on. Together with the
 detection result (cropping: −4pp), inference-time subject isolation is now
-measured twice and rejected twice; background-invariance belongs in *training*
-augmentation instead (see `04_train_improved`'s `BG_AUG` toggle).
+measured twice and rejected twice.
+
+The follow-up — moving background suppression into *training* augmentation
+(`04_train_improved`'s `BG_AUG` toggle: blur the background with the student's
+mask at p=0.5) — was A/B'd under identical code (100 species, 15 epochs,
+2026-08-09): **bg-aug 0.692/0.900 vs control 0.697/0.901 top-1/top-5 — a wash.**
+Three experiments, one conclusion: backgrounds carry usable signal (habitat
+context) for fine-grained species ID; don't fight them.
 
 What ships: the **UX overlay** in the demo's Identify tab — the mask is returned
 as a base64 PNG and rendered as a toggleable "what the model attends to" overlay,
