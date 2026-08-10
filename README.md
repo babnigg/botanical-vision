@@ -156,7 +156,10 @@ and reporting top-1 / top-5 accuracy:
 - `notebooks/04_train_improved.ipynb` — the **active model** where improvements go:
   stronger augmentation (RandAugment, color jitter, random erasing), label
   smoothing, discriminative learning rates, a cosine schedule, more epochs, and
-  best-val checkpointing.
+  best-val checkpointing. Reference run on all 4,094 species (Kaggle T4,
+  2026-08-09): **test top-1 0.620 · top-5 0.786** (best val 0.630) —
+  **+7.1pp top-1** over the fixed baseline under the same full-vocabulary
+  protocol.
 
 Both have an `N_SPECIES` toggle — set it to an int (e.g. 100) for a quick run, or
 leave it `None` to train on all species (a multi-hour run on the full dataset).
