@@ -1,5 +1,5 @@
-"""Compose engine: garden plans from the iteration-3 masked-diffusion layout model
-(notebook 13, checkpoints/garden_maskdiff2_best.pt) with decode-time search — sample
+"""Compose engine: garden plans from the iteration-4 masked-diffusion layout model
+(notebook 15, checkpoints/garden_maskdiff3_best.pt) with decode-time search — sample
 N candidates, repair, rerank by the layout metrics. Falls back to the rule generator
 without torch or the checkpoint.
 
@@ -22,11 +22,11 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CKPT = ROOT / "checkpoints" / "garden_maskdiff2_best.pt"
+CKPT = ROOT / "checkpoints" / "garden_maskdiff3_best.pt"
 
-# token scheme — must mirror notebooks/13_refine_layout.ipynb exactly
+# token scheme — must mirror notebooks/15_layered_layout.ipynb exactly
 NX, NY, NW, ND, NCNT = 32, 12, 9, 7, 10
-NSP = 16
+NSP = 21
 MASK = 0
 T_W = 1
 T_D = T_W + NW
@@ -36,10 +36,10 @@ T_SP = T_CNT + NCNT
 T_X = T_SP + 1 + NSP
 T_Y = T_X + 1 + NX
 VOCAB = T_Y + 1 + NY
-MAXP = 60
+MAXP = 110
 L = 3 + NSP + 3 * MAXP
 
-N_CANDIDATES = 6
+N_CANDIDATES = 48                     # sampling is cheap (~2.6s); search closes most of the teacher gap
 
 _garden = None
 _model = None
@@ -208,11 +208,11 @@ def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
 
     model = _load_model()
     if model is not None:
-        cands = [g.repair(p, w, d) for p in _sample_batch(model, w, d, sun, pin_list, N_CANDIDATES)]
-        plan = max(cands, key=lambda p: g.score2(p, w, d, sun)["score"])
-        served, note = f"diffusion2 best-of-{N_CANDIDATES}", None
+        cands = [g.repair3(p, w, d) for p in _sample_batch(model, w, d, sun, pin_list, N_CANDIDATES)]
+        plan = max(cands, key=lambda p: g.score3(p, w, d, sun)["score"])
+        served, note = f"diffusion3 best-of-{N_CANDIDATES}", None
     else:
-        plan = g.repair(g.gen_plan2(w, d, sun), w, d)
+        plan = g.repair3(g.gen_plan3(w, d, sun), w, d)
         served = "rules"
         note = "layout model checkpoint not found — serving the rule generator; pins not placed"
 
@@ -223,7 +223,7 @@ def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
                "x": round(x, 3), "y": round(y, 3), "r": round(r, 3),
                "pinned": g.PALETTE[i]["name"] in pinned}
               for i, x, y, r in plan]
-    metrics = {k: round(v, 3) for k, v in g.score2(plan, w, d, sun).items()}
+    metrics = {k: round(v, 3) for k, v in g.score3(plan, w, d, sun).items()}
     out = {"live": True, "served": served,
            "bed": {"w": w, "d": d, "sun": sun, "sun_name": g.SUN_NAMES[sun]},
            "plants": plants, "metrics": metrics, "ignored_pins": ignored}
