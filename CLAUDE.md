@@ -20,7 +20,9 @@ and CI were removed). The hard rules:
 - **Notebooks are the graded work.** 01/02 are maintainer-only (don't re-run); classifier
   work runs 03 → 05 (experiments in `04_train_improved`; leave it be if mid-run);
   06 = detection, 07 = segmentation, 08/09 = stylize placeholders (owner tbd),
-  10–12 = compose (layout transformer, masked-diffusion completion, controlnet render).
+  10–16 = compose (layout transformer → masked diffusion → render → real plans →
+  curated design; 16 is the current word on generation + evaluation — read its
+  header before touching compose).
 - **Notebook plumbing lives in `bvtrain/`** (env detection, data loading, resumable
   checkpointing across local/Colab/Kaggle, the training loop, eval). Keep the *model /
   augmentation / optimizer* in the notebook; put reusable machinery in `bvtrain/`. The

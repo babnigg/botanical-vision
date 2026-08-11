@@ -139,6 +139,7 @@ Face, plans generated procedurally), so you never need local data.
 | `13_refine_layout` | optional | Compose — designed corpus, count-token conditioning, best-of-N + repair decoding |
 | `14_real_plans` | optional | Compose — label real drawings (Hough+edge verification) → transfer pretraining |
 | `15_layered_layout` | optional | Compose — layered corpus (strata/drift/rhythm), literature metrics, real-plan calibration |
+| `16_curated_design` | optional | Compose — the reckoning: metric circularity exposed, design-layer reframe, realism metric, blinded pairs |
 
 Training writes a `.pt` to `checkpoints/`. To share it with the team, run
 `python -m share.publish` (see *start here* above).
@@ -319,6 +320,20 @@ scoring metrics. Shared primitives (palette, rule generator, metrics, drawing) l
   beds score 0.67–0.81 vs 0.47 corpus mean, so the suite ranks real design quality —
   the anti-circularity fix 13/14 lacked. Palette 16 → 21 species (appended; old
   checkpoints keep their indices) with `form`/`tex`/`persist` traits + common names.
+- **`16_curated_design`** — the reckoning, driven by looking at outputs: 15's
+  0.88-scoring plan, redrawn as a designer's patch plan, was a groundcover carpet with
+  seven plants (self-authored metrics + argmax search = reward hacking, Gao et al.
+  2023). The fix: (1) **genre reframe** — plans become the *design layer* real
+  drawings show (~35 symbols, anchors, theme masses, rhythm; `gen_plan4`); measured
+  against real-bed statistics, the v3 corpus was indistinguishable from random (3.63
+  vs 3.51) while v4 measures 0.81. (2) **honest evaluation** — `realism` (distance
+  to real-bed stats we didn't author) is primary; `score3` is held-out report-only;
+  final judgment is blinded pairwise sheets. (3) **simplification** — count tokens
+  dropped (canvas 354 → 147), carpets dropped, `curate4` editorial pass added. The
+  pilot pairwise result is reported as-is: **the procedural teacher beat the neural
+  model 4–0**, so the demo routes by capability — no pins → curated rules, pins →
+  the diffusion model (its unique strength: infilling around fixed slots, trimmed
+  back to the brief).
 
 ### Rebuilding the dataset (maintainer only)
 

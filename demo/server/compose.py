@@ -1,11 +1,13 @@
-"""Compose engine: garden plans from the iteration-4 masked-diffusion layout model
-(notebook 15, checkpoints/garden_maskdiff3_best.pt) with decode-time search — sample
-N candidates, repair, rerank by the layout metrics. Falls back to the rule generator
-without torch or the checkpoint.
+"""Compose engine: garden plans from the iteration-5 masked-diffusion layout model
+(notebook 16, checkpoints/garden_maskdiff4_best.pt). Decode-time selection is kept
+honest: candidates are repaired, ranked by `realism` (distance to real-bed design
+statistics — not our own rule metrics), and served randomly from the top 3. Falls
+back to the curated rule generator without torch or the checkpoint.
 
-Pinning uses slot tokens (guaranteed: >= requested plants appear) plus the matching
-count token as a soft prior — notebook 13 measured count tokens alone at 0.72
-plants/species obedience, not enough for a promise to the user.
+Capability routing (from nb 16's blinded pairwise judgment): unpinned requests are
+served by the curated rule generator, which humans preferred; pinned requests go to
+the diffusion model, whose unique strength is infilling around fixed slot tokens
+(guaranteed: >= requested plants appear, then trimmed back to the brief).
 
 Loads bvtrain/garden.py directly by file path (not the bvtrain package) so the demo
 stays decoupled from the training stack. Torch imports lazily, mirroring classifier.py.
@@ -22,24 +24,24 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CKPT = ROOT / "checkpoints" / "garden_maskdiff3_best.pt"
+CKPT = ROOT / "checkpoints" / "garden_maskdiff4_best.pt"
 
-# token scheme — must mirror notebooks/15_layered_layout.ipynb exactly
-NX, NY, NW, ND, NCNT = 32, 12, 9, 7, 10
+# token scheme — must mirror notebooks/16_curated_design.ipynb exactly
+# (count tokens removed in iteration 5 — slot pins are the only pin mechanism)
+NX, NY, NW, ND = 32, 12, 9, 7
 NSP = 21
 MASK = 0
 T_W = 1
 T_D = T_W + NW
 T_SUN = T_D + ND
-T_CNT = T_SUN + 3
-T_SP = T_CNT + NCNT
+T_SP = T_SUN + 3
 T_X = T_SP + 1 + NSP
 T_Y = T_X + 1 + NX
 VOCAB = T_Y + 1 + NY
-MAXP = 110
-L = 3 + NSP + 3 * MAXP
+MAXP = 48
+L = 3 + 3 * MAXP
 
-N_CANDIDATES = 48                     # sampling is cheap (~2.6s); search closes most of the teacher gap
+N_CANDIDATES = 24
 
 _garden = None
 _model = None
@@ -126,7 +128,7 @@ def _site_tokens(w, d, sun):
 def _fam_mask(torch):
     global _fam
     if _fam is None:
-        fam = ([(T_W, T_D), (T_D, T_SUN), (T_SUN, T_CNT)] + [(T_CNT, T_SP)] * NSP
+        fam = ([(T_W, T_D), (T_D, T_SUN), (T_SUN, T_SP)]
                + [(T_SP, T_X), (T_X, T_Y), (T_Y, VOCAB)] * MAXP)
         m = torch.full((L, VOCAB), float("-inf"))
         for p, (lo, hi) in enumerate(fam):
@@ -138,7 +140,7 @@ def _fam_mask(torch):
 def _decode(tokens, w, d):
     g = garden()
     plan = []
-    for k in range(3 + NSP, L, 3):
+    for k in range(3, L, 3):
         s, x, y = tokens[k] - T_SP, tokens[k + 1] - T_X, tokens[k + 2] - T_Y
         if s <= 0 or x <= 0 or y <= 0:
             continue
@@ -156,15 +158,13 @@ def _sample_batch(model, w, d, sun, pin_list, n, steps=12):
     site = torch.tensor(_site_tokens(w, d, sun))
     canvas[:, :3] = site
     fixed[:, :3] = True
-    # slot pins guarantee presence; the count token carries the same brief as a prior
+    # slot pins guarantee presence
     slot = 0
     for sp_idx, cnt in pin_list:
-        canvas[:, 3 + sp_idx] = T_CNT + min(NCNT - 1, cnt)
-        fixed[:, 3 + sp_idx] = True
         for _ in range(cnt):
             if slot >= MAXP:
                 break
-            p = 3 + NSP + slot * 3
+            p = 3 + slot * 3
             canvas[:, p] = T_SP + 1 + sp_idx
             fixed[:, p] = True
             nonone[:, p + 1] = nonone[:, p + 2] = True
@@ -189,6 +189,50 @@ def _sample_batch(model, w, d, sun, pin_list, n, steps=12):
     return [_decode(canvas[b].tolist(), w, d) for b in range(n)]
 
 
+
+
+def _trim_pinned(plan, pin_list):
+    """the model over-serves pinned species (>= is guaranteed); trim whole masses
+    beyond the brief so 7 pinned coneflowers don't arrive as 17."""
+    g_ = garden()
+    for sp_idx, cnt in pin_list:
+        cl = sorted(([pt for pt in pts] for i, pts in g_._clusters(plan, link=0.35)
+                     if i == sp_idx), key=len, reverse=True)
+        keep, total = [], 0
+        for pts in cl:
+            if total >= cnt:
+                break
+            keep.append(pts)
+            total += len(pts)
+        kept = {(round(x, 6), round(y, 6)) for pts in keep for x, y, _ in pts}
+        plan[:] = [p for p in plan
+                   if p[0] != sp_idx or (round(p[1], 6), round(p[2], 6)) in kept]
+
+
+def _patches(plan, pinned):
+    """designer patches: one smooth outline per same-species mass (shapely union)."""
+    g_ = garden()
+    try:
+        from shapely.geometry import Point
+        from shapely.ops import unary_union
+    except ImportError:
+        return []
+    out = []
+    for i, pts in g_._clusters(plan, link=0.35):
+        p = g_.PALETTE[i]
+        shapes = unary_union([Point(x, y).buffer(r) for x, y, r in pts]).buffer(0.13).buffer(-0.09)
+        rings = [list(zip(*geom.exterior.xy)) for geom in getattr(shapes, "geoms", [shapes])]
+        cx = sum(x for x, _, _ in pts) / len(pts)
+        cy = sum(y for _, y, _ in pts) / len(pts)
+        out.append({"species": p["name"], "common": p["common"], "layer": p["layer"],
+                    "color": p["color"], "count": len(pts),
+                    "pinned": p["name"] in pinned,
+                    "label": [round(cx, 3), round(cy, 3)],
+                    "rings": [[[round(x, 3), round(y, 3)] for x, y in ring] for ring in rings],
+                    "crowns": [[round(x, 3), round(y, 3)] for x, y, _ in pts]})
+    return out
+
+
 def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
     g = garden()
     w = max(3.5, min(7.5, float(width)))
@@ -206,15 +250,26 @@ def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
     # taller pinned species take earlier (backer) slots
     pin_list.sort(key=lambda t: -g.PALETTE[t[0]]["h"])
 
-    model = _load_model()
+    # capability routing (decided by blinded pairwise judgment, nb 16): the curated
+    # rule generator composes nicer beds from scratch; the diffusion model's unique
+    # value is infilling around pinned plants — so pins go to the model.
+    model = _load_model() if pin_list else None
+    import random as _random
     if model is not None:
-        cands = [g.repair3(p, w, d) for p in _sample_batch(model, w, d, sun, pin_list, N_CANDIDATES)]
-        plan = max(cands, key=lambda p: g.score3(p, w, d, sun)["score"])
-        served, note = f"diffusion3 best-of-{N_CANDIDATES}", None
+        cands = [g.curate4(g.repair3(p, w, d), w, d)
+                 for p in _sample_batch(model, w, d, sun, pin_list, N_CANDIDATES)]
+        for c in cands:
+            _trim_pinned(c, pin_list)
+        ranked = sorted(cands, key=lambda p: g.realism(p, w, d))
+        plan = _random.choice(ranked[:3])       # softened selection, no metric argmax
+        served, note = f"diffusion4 best-of-{N_CANDIDATES}", None
     else:
-        plan = g.repair3(g.gen_plan3(w, d, sun), w, d)
-        served = "rules"
-        note = "layout model checkpoint not found — serving the rule generator; pins not placed"
+        cands = [g.gen_plan4(w, d, sun) for _ in range(4)]
+        plan = min(cands, key=lambda p: g.realism(p, w, d))
+        served = "designer rules"
+        note = None
+        if pin_list and not CKPT.exists():
+            note = "layout model checkpoint not found — pins not placed"
 
     pinned = {g.PALETTE[i]["name"] for i, _ in pin_list} if model is not None else set()
     plants = [{"species": g.PALETTE[i]["name"], "common": g.PALETTE[i]["common"],
@@ -223,10 +278,12 @@ def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
                "x": round(x, 3), "y": round(y, 3), "r": round(r, 3),
                "pinned": g.PALETTE[i]["name"] in pinned}
               for i, x, y, r in plan]
-    metrics = {k: round(v, 3) for k, v in g.score3(plan, w, d, sun).items()}
+    metrics = {"realism": round(g.realism(plan, w, d), 2),
+               "plants": len(plan), "species": len({i for i, *_ in plan})}
     out = {"live": True, "served": served,
            "bed": {"w": w, "d": d, "sun": sun, "sun_name": g.SUN_NAMES[sun]},
-           "plants": plants, "metrics": metrics, "ignored_pins": ignored}
+           "plants": plants, "patches": _patches(plan, pinned), "metrics": metrics,
+           "ignored_pins": ignored}
     if note:
         out["note"] = note
     return out

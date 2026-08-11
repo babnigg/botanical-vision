@@ -91,6 +91,18 @@ export interface PaletteEntry {
   color: string;
 }
 
+export interface ComposePatch {
+  species: string;
+  common: string;
+  layer: string;
+  color: string;
+  count: number;
+  pinned: boolean;
+  label: [number, number];
+  rings: [number, number][][];
+  crowns: [number, number][];
+}
+
 export interface ComposePlant {
   species: string;
   common?: string;
@@ -109,6 +121,7 @@ export interface ComposeResponse {
   bed: { w: number; d: number; sun: number; sun_name: string };
   plants: ComposePlant[];
   metrics: Record<string, number>;
+  patches?: ComposePatch[];
   ignored_pins: string[];
   note?: string;
 }

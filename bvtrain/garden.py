@@ -706,6 +706,197 @@ def repair3(plan, w, d):
     return [tuple(p) for p in plan]
 
 
+# ── v4: curated design layer (nb 16) ────────────────────────────────────────
+# the final reframe, driven by looking at outputs instead of scores: real
+# planting *drawings* show the design layer (masses, anchors, rhythm), not the
+# horticultural fill — ~35 symbols, ~8 species, ~13 groups on a bed-sized plot
+# (measured from the harvested permapeople beds). gen_plan4 composes that layer
+# directly: a structural anchor at a rule-of-thirds point, a theme species
+# repeated as three masses, secondaries banded by height, front accents, and a
+# few specimen singles. groundcover stays a planting note, not 40 circles.
+# evaluation shifts off self-authored rules: `realism()` measures distance to
+# the real beds' design statistics.
+
+DESIGN4 = None   # lazily: palette indices of non-groundcover species
+
+
+def _design4():
+    global DESIGN4
+    if DESIGN4 is None:
+        DESIGN4 = [i for i, p in enumerate(PALETTE) if p["layer"] != "groundcover"]
+    return DESIGN4
+
+
+def _place_mass(plan, i, n, xc, yc, w, d, min_gap=0.15):
+    # n plants tightly clumped at (xc, yc); None if any point can't sit legally
+    r = PALETTE[i]["s"] / 200
+    pts = []
+    ang0 = random.uniform(0, math.tau)
+    for k in range(n):
+        if k == 0:
+            x, y = xc, yc
+        else:
+            a = ang0 + k * 2.4                      # sunflower packing
+            rad = r * 1.38 * math.sqrt(k)
+            x, y = xc + rad * math.cos(a), yc + rad * math.sin(a)
+        if not (r * 0.95 < x < w - r * 0.95 and r * 0.75 < y < d - r * 0.75):
+            return None
+        for _, px, py, pr in plan:
+            if math.hypot(x - px, y - py) < 0.8 * (r + pr) + min_gap:
+                return None
+        pts.append((i, x, y, r))
+    return pts
+
+
+def _build4(w, d, sun=None):
+    pool = [i for i in _design4() if sun is None or abs(PALETTE[i]["sun"] - sun) <= 1]
+    struct = [i for i in pool if PALETTE[i]["layer"] == "structural"] or \
+             [i for i in _design4() if PALETTE[i]["layer"] == "structural"]
+    mids = [i for i in pool if PALETTE[i]["layer"] in ("seasonal", "filler")]
+    random.shuffle(mids)
+    anchor = random.choice(struct)
+    theme, *rest = mids
+    secondary = rest[:3]
+    accent = rest[3] if len(rest) > 3 else None
+
+    def try_mass(plan, i, n, xband, yband, tries=40, gap=0.15):
+        for t in range(tries):
+            gp = gap if t < tries // 2 else 0.06     # relax spacing late
+            m = _place_mass(plan, i, n, random.uniform(*xband), random.uniform(*yband),
+                            w, d, min_gap=gp)
+            if m:
+                plan += m
+                return True
+        return False
+
+    plan = []
+    # structural anchor at a rule-of-thirds point, back half
+    ra = PALETTE[anchor]["s"] / 200
+    x3 = w * random.choice((0.33, 0.67))
+    try_mass(plan, anchor, 1, (x3 - 0.3, x3 + 0.3), (d * 0.55, d * 0.8))
+    if plan and random.random() < 0.4:               # sometimes a partner shrub
+        try_mass(plan, anchor, 1, (plan[0][1] - ra * 3, plan[0][1] + ra * 3),
+                 (d * 0.5, d * 0.8))
+    # theme species: three masses on a loose diagonal rhythm
+    ys = [d * 0.6, d * 0.42, d * 0.28]
+    random.shuffle(ys)
+    for j, yc in enumerate(ys):
+        try_mass(plan, theme, random.choice((3, 5)),
+                 (w * j / 3 + 0.25, w * (j + 1) / 3 - 0.25), (yc - d * 0.1, yc + d * 0.1))
+    # secondaries: two masses each, banded by height
+    for si in secondary:
+        band = (0.35, 0.72) if PALETTE[si]["h"] > 70 else (0.12, 0.45)
+        for _ in range(2):
+            try_mass(plan, si, 3, (w * 0.06, w * 0.94), (d * band[0], d * band[1]))
+    # front accents
+    if accent is not None:
+        for _ in range(1 + (w > 4.8)):
+            try_mass(plan, accent, 3, (w * 0.12, w * 0.88), (d * 0.1, d * 0.32))
+    # specimen singles: real beds sprinkle a few exclamation marks
+    tall = [i for i in pool if 70 <= PALETTE[i]["h"] <= 150
+            and PALETTE[i]["layer"] != "structural"]
+    for _ in range(random.choice((2, 3))):
+        try_mass(plan, random.choice(tall or mids), 1,
+                 (w * 0.06, w * 0.94), (d * 0.3, d * 0.85), tries=20)
+    return plan
+
+
+def gen_plan4(w, d, sun=None):
+    # retry whole beds until the composition is actually complete
+    best = []
+    for _ in range(8):
+        plan = _build4(w, d, sun)
+        if len({i for i, *_ in plan}) >= 6 and len(_clusters(plan, link=0.35)) >= 9:
+            return plan
+        if len(plan) > len(best):
+            best = plan
+    return best
+
+
+# reference design statistics of the top size-matched (5-20 m^2) harvested
+# permapeople beds — (median, half-IQR); recompute with scripts/permapeople_plans.py
+REAL_STATS = {"sp": (8.0, 1.5), "groups": (13.0, 3.5), "mean_group": (2.69, 0.7),
+              "singles": (0.29, 0.12), "dens": (2.70, 1.0)}
+
+
+def plan_stats(plan, w, d):
+    cl = _clusters(plan, link=0.35)
+    if not cl:
+        return {k: 0.0 for k in REAL_STATS}
+    sizes = [len(pts) for _, pts in cl]
+    return {"sp": float(len({i for i, _ in cl})), "groups": float(len(cl)),
+            "mean_group": float(np.mean(sizes)),
+            "singles": sum(1 for s in sizes if s == 1) / len(cl),
+            "dens": len(plan) / (w * d)}
+
+
+def realism(plan, w, d):
+    # mean |z| distance to the real beds' design statistics (lower = closer)
+    s = plan_stats(plan, w, d)
+    return float(np.mean([abs(s[k] - m) / hi for k, (m, hi) in REAL_STATS.items()]))
+
+
+def curate4(plan, w, d):
+    """editorial pass on a generated design layer: clamp shrubs fully into the
+    bed, clear plants from under structural canopies, cap stray singles."""
+    plan = [list(p) for p in plan]
+    for p in plan:                                   # hard clamp, generator margins
+        i, r = p[0], p[3]
+        mx, my = (0.95, 0.75) if PALETTE[i]["layer"] == "structural" else (0.7, 0.55)
+        p[1] = min(max(p[1], r * mx), max(r * mx, w - r * mx))
+        p[2] = min(max(p[2], r * my), max(r * my, d - r * my))
+    struct = [(x, y, r) for i, x, y, r in plan if PALETTE[i]["layer"] == "structural"]
+    keep = []
+    for i, x, y, r in plan:                          # nothing hides under a shrub
+        if PALETTE[i]["layer"] != "structural" and any(
+                math.hypot(x - sx, y - sy) < sr * 0.8 for sx, sy, sr in struct):
+            continue
+        keep.append((i, x, y, r))
+    cl = _clusters(keep, link=0.35)
+    massed = {i for i, pts in cl if len(pts) >= 3}
+    singles = [(i, pts[0]) for i, pts in cl if len(pts) == 1
+               and PALETTE[i]["layer"] != "structural"]
+    drop = {(i, pt) for i, pt in singles if i in massed}        # stray bits of a mass
+    solo = [s for s in singles if s[0] not in massed]
+    drop.update(solo[3:])                                       # at most 3 specimens
+    dropset = {(i, round(pt[0], 6), round(pt[1], 6)) for i, pt in drop}
+    out = [(i, x, y, r) for i, x, y, r in keep
+           if (i, round(x, 6), round(y, 6)) not in dropset]
+    return repair3(out, w, d)
+
+
+def show_plan4(plan, w, d, ax, title="", pins=()):
+    # a designer's drawing: one smooth labeled patch per mass, crown dots inside
+    from shapely.geometry import Point as _P
+    from shapely.ops import unary_union as _uu
+    ax.add_patch(Rectangle((-0.15, -0.15), w + 0.3, d + 0.3, facecolor="#f4efe2", edgecolor="none"))
+    ax.add_patch(Rectangle((0, 0), w, d, facecolor="#e8dfc8", edgecolor="#6b5b45", lw=1.3))
+    pinset = {plan[k][0] for k in pins} if pins else set()
+    for i, pts in _clusters(plan, link=0.35):
+        p = PALETTE[i]
+        shapes = _uu([_P(x, y).buffer(r) for x, y, r in pts]).buffer(0.13).buffer(-0.09)
+        for geom in getattr(shapes, "geoms", [shapes]):
+            xs, ys = geom.exterior.xy
+            ax.fill(xs, ys, facecolor=p["color"],
+                    edgecolor="black" if i in pinset else "#43331f",
+                    lw=1.8 if i in pinset else 1.2, alpha=0.92,
+                    zorder=4 if p["layer"] == "structural" else 3)
+        for x, y, r in pts:
+            ax.plot(x, y, "o", ms=2.4, color="#43331f", alpha=0.5, zorder=5)
+        cx = float(np.mean([x for x, _, _ in pts]))
+        cy = float(np.mean([y for _, y, _ in pts]))
+        ax.text(cx, cy, f"{len(pts)}× {p['common']}", fontsize=6.6, ha="center",
+                va="center", zorder=6, color="#241a10",
+                bbox=dict(boxstyle="round,pad=0.16", fc="#faf5e6", ec="#43331f",
+                          lw=0.45, alpha=0.92))
+    ax.set_xlim(-0.25, w + 0.25)
+    ax.set_ylim(-0.25, d + 0.25)
+    ax.set_aspect("equal")
+    ax.set_title(title, fontsize=9)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+
 # ── drawing ─────────────────────────────────────────────────────────────────
 
 def show_plan(plan, w, d, ax, title="", pins=()):

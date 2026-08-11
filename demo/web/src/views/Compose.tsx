@@ -233,27 +233,70 @@ export default function Compose() {
                     stroke="var(--line)"
                     strokeWidth={0.03}
                   />
-                  {result.plants.map((p, k) => (
-                    <circle
-                      key={k}
-                      cx={p.x}
-                      cy={bed.d - p.y}
-                      r={p.r}
-                      fill={p.color}
-                      fillOpacity={0.85}
-                      stroke={p.pinned ? "var(--ink)" : "var(--line)"}
-                      strokeWidth={p.pinned ? 0.04 : 0.015}
-                    >
-                      <title>
-                        {p.common ? `${p.common} — ${p.species}` : p.species} ({p.layer})
-                      </title>
-                    </circle>
-                  ))}
+                  {result.patches?.length
+                    ? result.patches.map((pt, k) => (
+                        <g key={k}>
+                          {pt.rings.map((ring, j) => (
+                            <path
+                              key={j}
+                              d={
+                                ring
+                                  .map(
+                                    ([x, y], i) =>
+                                      `${i === 0 ? "M" : "L"}${x} ${bed.d - y}`
+                                  )
+                                  .join(" ") + " Z"
+                              }
+                              fill={pt.color}
+                              fillOpacity={0.9}
+                              stroke={pt.pinned ? "var(--ink)" : "#43331f"}
+                              strokeWidth={pt.pinned ? 0.05 : 0.022}
+                            >
+                              <title>
+                                {pt.count}× {pt.common} — {pt.species} ({pt.layer})
+                              </title>
+                            </path>
+                          ))}
+                          {pt.crowns.map(([x, y], j) => (
+                            <circle key={j} cx={x} cy={bed.d - y} r={0.035}
+                                    fill="#43331f" fillOpacity={0.55} />
+                          ))}
+                          <text
+                            x={pt.label[0]}
+                            y={bed.d - pt.label[1]}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize={0.13}
+                            fill="var(--ink)"
+                            paintOrder="stroke"
+                            stroke="var(--panel, #faf5e6)"
+                            strokeWidth={0.045}
+                          >
+                            {pt.count}× {pt.common}
+                          </text>
+                        </g>
+                      ))
+                    : result.plants.map((p, k) => (
+                        <circle
+                          key={k}
+                          cx={p.x}
+                          cy={bed.d - p.y}
+                          r={p.r}
+                          fill={p.color}
+                          fillOpacity={0.85}
+                          stroke={p.pinned ? "var(--ink)" : "var(--line)"}
+                          strokeWidth={p.pinned ? 0.04 : 0.015}
+                        >
+                          <title>
+                            {p.common ? `${p.common} — ${p.species}` : p.species} ({p.layer})
+                          </title>
+                        </circle>
+                      ))}
                 </svg>
               </div>
               <div className="aux" style={{ marginTop: 6 }}>
                 front of bed at the bottom · {result.plants.length} plants · pinned
-                plants outlined
+                masses outlined
               </div>
               <div className="chips" style={{ marginTop: 10 }}>
                 {Object.entries(result.metrics).map(([k, v]) => (
