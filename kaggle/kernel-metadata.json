@@ -1,7 +1,7 @@
 {
   "id": "danielbabnigg/botanical-vision-train",
   "title": "Botanical Vision - train",
-  "code_file": "04_train_improved.ipynb",
+  "code_file": "04b_train_vit.ipynb",
   "language": "python",
   "kernel_type": "notebook",
   "is_private": true,
