@@ -128,6 +128,7 @@ Face, plans generated procedurally), so you never need local data.
 | `02_eda_images` | maintainer only | **don't re-run** — inventories raw images + writes the split; read only |
 | `03_train_classifier` | everyone | **run-only** baseline (fixed reference) — don't experiment here |
 | `04_train_improved` | everyone | **where classifier work goes** — all classifier improvements live here |
+| `04b_train_vit` | optional | ViT-base challenger (HF `transformers`) — second champion-challenger pair for problem 1 |
 | `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
 | `06_detect_subject` | optional | zero-shot YOLO subject localizer + Δtop-1 (see below) |
 | `07_train_segmentation` | everyone | distilled plant/background segmenter — feeds the classifier as a soft-mask preprocessor |
@@ -164,6 +165,11 @@ and reporting top-1 / top-5 accuracy:
 
 Both have an `N_SPECIES` toggle — set it to an int (e.g. 100) for a quick run, or
 leave it `None` to train on all species (a multi-hour run on the full dataset).
+
+A third architecture, `notebooks/04b_train_vit.ipynb`, fine-tunes **ViT-base**
+(`google/vit-base-patch16-224-in21k`) on the same splits — the transformer
+challenger to the ResNet champion. Train it, then `python -m share.publish` the
+checkpoint so the leaderboard compares all three under the same protocol.
 
 **Resumable training.** `bv.fit()` saves full state (model, optimizer, scheduler,
 epoch, step, best-val, history) every `ckpt_every` steps and writes two checkpoints
