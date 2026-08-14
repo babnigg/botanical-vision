@@ -329,18 +329,18 @@ export default function Compose() {
       <div className="card" style={{ marginTop: 20 }}>
         <h4>
           What the render looks like{" "}
-          <span className="aux">pre-rendered examples · SD 1.5 + seg ControlNet (notebook 15)</span>
+          <span className="aux">photo-grounded: real dataset images of each species → img2img + seg ControlNet</span>
         </h4>
         <div className="grid2">
           <figure style={{ margin: 0 }}>
-            <img src="/gallery/render_iter4.png" alt="styled render, iteration-4 layered plan"
+            <img src="/gallery/render_iter5.png" alt="photo-grounded render of a generated plan"
                  style={{ width: "100%", borderRadius: 10 }} />
-            <figcaption className="aux">a generated plan, rendered as a watercolor planting plan</figcaption>
+            <figcaption className="aux">the rendered bed — colors and textures inherited from real photos of the plan's species</figcaption>
           </figure>
           <figure style={{ margin: 0 }}>
-            <img src="/gallery/cond_iter4.png" alt="conditioning image for the render"
+            <img src="/gallery/mosaic_iter5.png" alt="photo mosaic the render starts from"
                  style={{ width: "100%", borderRadius: 10 }} />
-            <figcaption className="aux">its conditioning image — the plan is already a segmentation map</figcaption>
+            <figcaption className="aux">the photo mosaic it starts from — real dataset images placed at each plant's position</figcaption>
           </figure>
         </div>
       </div>
