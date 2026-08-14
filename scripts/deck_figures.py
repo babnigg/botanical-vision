@@ -41,7 +41,8 @@ def _despine(ax, keep=("bottom",)):
 
 
 def fig_iteration_arc(out: Path):
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(12.6, 4.6), width_ratios=[5, 3.2])
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(12.6, 4.6), width_ratios=[5, 3.2],
+                                 gridspec_kw={"wspace": 0.16})
     labels = ["random", "AR\ntransformer", "masked\ndiffusion", "+ search\n(best-of-8)", "rule\nteacher"]
     vals = [0.63, 0.76, 0.78, 0.89, 0.90]
     cols = [SAGE_SOFT, SAGE_SOFT, SAGE_SOFT, GOLD, GREEN]
@@ -51,6 +52,7 @@ def fig_iteration_arc(out: Path):
                 fontsize=16, color=INK)
     a1.set_ylim(0, 1.04)
     a1.set_yticks([])
+    a1.set_xlabel("rule-metric score, higher is better", fontsize=13.5, labelpad=10)
     labels2 = ["v3\ncorpus", "random", "model\n(best-of-24)", "curated\nteacher"]
     vals2 = [3.63, 3.51, 1.16, 0.81]
     cols2 = [SAGE_SOFT, SAGE_SOFT, GOLD, GREEN]
@@ -60,6 +62,7 @@ def fig_iteration_arc(out: Path):
                 fontsize=16, color=INK)
     a2.set_ylim(0, 4.15)
     a2.set_yticks([])
+    a2.set_xlabel("distance to real beds, lower is better", fontsize=13.5, labelpad=10)
     for a in (a1, a2):
         _despine(a)
         a.tick_params(length=0, labelsize=14)
