@@ -145,6 +145,48 @@ def fig_class_longtail(out: Path):
     plt.close()
 
 
+def fig_ops_map(out: Path):
+    fig, ax = plt.subplots(figsize=(12.6, 5.2))
+    ax.set_xlim(0, 12.6)
+    ax.set_ylim(0, 5.2)
+    ax.axis("off")
+
+    def box(x, y, w, h, title, sub, fc="#3F523710", ec=GREEN, tc=INK):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.06,rounding_size=0.1",
+                                    fc=fc, ec=ec, lw=1.4))
+        ax.text(x + w / 2, y + h - 0.45, title, ha="center", fontsize=15, color=tc,
+                family="Playfair Display" if any("Playfair" in f.name for f in fm.fontManager.ttflist) else None)
+        ax.text(x + w / 2, y + (h - 0.65) / 2, sub, ha="center", va="center",
+                fontsize=11.5, color=tc, linespacing=1.45)
+
+    def arrow(x1, y1, x2, y2, label=None, ly=0.16):
+        ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="-|>",
+                                     mutation_scale=16, lw=1.7, color=SAGE,
+                                     shrinkA=5, shrinkB=5, alpha=0.85))
+        if label:
+            ax.text((x1 + x2) / 2, (y1 + y2) / 2 + ly, label, fontsize=11,
+                    color=SAGE, style="italic", ha="center")
+
+    box(0.5, 3.4, 3.6, 1.5, "train anywhere",
+        "notebooks · kaggle headless\nresumable checkpoints")
+    box(4.7, 3.4, 3.4, 1.5, "publish",
+        "python -m share.publish\nlean bundle → HF model repo")
+    box(8.8, 3.4, 3.3, 1.5, "leaderboard",
+        "same streamed test protocol\nfor every member's model")
+    box(4.7, 0.4, 3.4, 1.4, "the demo",
+        "serves the champion\ncheckpoint directly", fc=GREEN, ec=GREEN, tc="#F5EFE2")
+    box(0.5, 0.4, 3.6, 1.4, "data by script",
+        "dataset · masks · plan corpus\nall regenerate from scripts")
+    arrow(4.1, 4.15, 4.7, 4.15)
+    arrow(8.1, 4.15, 8.8, 4.15)
+    arrow(10.4, 3.4, 6.6, 1.8, "champion = promotion")
+    ax.text(6.3, 4.95, "retrain → publish → champion — the promotion gate is the leaderboard",
+            ha="center", fontsize=12.5, style="italic", color=SAGE)
+    plt.tight_layout()
+    plt.savefig(out / "ops_map.png", dpi=180)
+    plt.close()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(Path.home() / "Downloads" / "deck-figures"))
@@ -153,6 +195,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     fig_iteration_arc(out)
     fig_project_map(out)
+    fig_ops_map(out)
     try:
         fig_class_longtail(out)
     except FileNotFoundError:
