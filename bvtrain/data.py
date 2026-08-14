@@ -6,10 +6,16 @@ gradient-accumulation factor so the *effective* batch is constant across machine
 """
 from __future__ import annotations
 
+import hashlib
 import os
+import random
+import time
 from dataclasses import dataclass
+from pathlib import Path
 
+import numpy as np
 import torch
+from PIL import Image, ImageFilter
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
@@ -66,6 +72,22 @@ def load_data(env, n_species=None, data_dir: str = "../data") -> Data:
     return data
 
 
+def _apply_bg_blur(img, mask, blur_radius: int = 15):
+    """Blend a Gaussian-blurred background into ``img`` using ``mask`` (L-mode PIL,
+    0 = background, 255 = plant). Returns ``img`` unchanged when the mask covers
+    essentially everything (nothing to blur). Called by both the local and HF
+    datasets so the recipe stays identical across paths.
+    """
+    if mask.size != img.size:
+        mask = mask.resize(img.size, Image.BILINEAR)  # match publisher's resample filter
+    m = np.asarray(mask, dtype=np.float32)[..., None] / 255.0
+    if m.mean() > 0.98:            # all-plant mask = nothing to blur
+        return img
+    blurred = img.filter(ImageFilter.GaussianBlur(blur_radius))
+    out = np.asarray(img) * m + np.asarray(blurred) * (1 - m)
+    return Image.fromarray(np.rint(out).astype("uint8"))
+
+
 class _PlantSetLocal(Dataset):
     def __init__(self, df, tf, label2idx, mask_dir=None, bg_aug_p=0.0):
         self.df = df.reset_index(drop=True)
@@ -82,28 +104,14 @@ class _PlantSetLocal(Dataset):
         return len(self.df)
 
     def _bg_blur(self, img, path):
-        import hashlib
-        import random as _random
-
-        import numpy as np
-        from PIL import Image, ImageFilter
-        if self.mask_dir is None or _random.random() >= self.bg_aug_p:
+        if self.mask_dir is None or random.random() >= self.bg_aug_p:
             return img
         mp = self.mask_dir / (hashlib.md5(str(path).encode()).hexdigest() + ".png")
         if not mp.exists():
             return img
-        mask = Image.open(mp).convert("L").resize(img.size)
-        m = np.asarray(mask, dtype=np.float32)[..., None] / 255.0
-        if m.mean() > 0.98:            # all-plant mask = nothing to blur
-            return img
-        blurred = img.filter(ImageFilter.GaussianBlur(15))
-        out = np.asarray(img) * m + np.asarray(blurred) * (1 - m)
-        return Image.fromarray(out.astype("uint8"))
+        return _apply_bg_blur(img, Image.open(mp).convert("L"))
 
     def __getitem__(self, i):
-        import time
-
-        from PIL import Image
         r = self.df.iloc[i]
         # cloud-synced local data (OneDrive) can throw transient read errors under load
         for attempt in range(3):
@@ -119,24 +127,50 @@ class _PlantSetLocal(Dataset):
 
 
 class _PlantSetHF(Dataset):
-    def __init__(self, ds, tf, label2idx):
+    def __init__(self, ds, tf, label2idx, bg_aug_p=0.0):
         self.ds = ds
         self.tf = tf
         self.l = label2idx
+        # bg-aug on the HF path only fires when the underlying dataset has a
+        # "mask" field (i.e. it's the paired masks-companion dataset from
+        # scripts/publish_student_masks_full.py). No field, no cost — the
+        # normal source dataset short-circuits before touching the RNG.
+        self.bg_aug_p = bg_aug_p
+        self._has_mask = "mask" in ds.features
 
     def __len__(self):
         return len(self.ds)
 
     def __getitem__(self, i):
         ex = self.ds[i]
-        return self.tf(ex["image"].convert("RGB")), self.l[ex["species"]]
+        img = ex["image"].convert("RGB")
+        if self._has_mask and self.bg_aug_p > 0 and random.random() < self.bg_aug_p:
+            img = _apply_bg_blur(img, ex["mask"].convert("L"))
+        return self.tf(img), self.l[ex["species"]]
 
 
-def _make_ds(data: Data, split: str, tf, mask_dir=None, bg_aug_p=0.0):
+def _make_ds(data: Data, split: str, tf, mask_dir=None, mask_repo=None, bg_aug_p=0.0):
     if data._local_splits is not None:
         return _PlantSetLocal(data._local_splits[data._local_splits["split"] == split], tf, data.label2idx,
                               mask_dir=mask_dir if split == "train" else None,
                               bg_aug_p=bg_aug_p if split == "train" else 0.0)
+    # HF: for the train split with a masks-companion repo, load the paired
+    # {image, mask, species, split} dataset in place of the source images so
+    # _PlantSetHF can apply bg-aug per-sample. Val/test keep the source (eval
+    # is always on natural backgrounds).
+    if split == "train" and mask_repo:
+        from datasets import load_dataset
+        hf_masks = load_dataset(mask_repo, split="train")
+        if "mask" not in hf_masks.features:
+            raise ValueError(
+                f"mask_repo {mask_repo!r} has no 'mask' field "
+                f"(features: {list(hf_masks.features)}) — expected the paired "
+                "companion dataset from scripts/publish_student_masks_full.py"
+            )
+        if data.n_species:
+            keep = set(data.labels)
+            hf_masks = hf_masks.filter(lambda e: e["species"] in keep)
+        return _PlantSetHF(hf_masks, tf, data.label2idx, bg_aug_p=bg_aug_p)
     return _PlantSetHF(data._hf[split], tf, data.label2idx)
 
 
@@ -152,6 +186,8 @@ class Loaders:
     train_tf: object
     labels: list
     n_species: object
+    bg_aug_p: float = 0.0
+    mask_key: str = ""    # "local:<dir>" or "hf:<repo>" — recorded so _signature() can split runs
 
     @property
     def n_labels(self) -> int:
@@ -159,15 +195,20 @@ class Loaders:
 
 
 def build_loaders(data: Data, train_tf, env, eval_tf=None, effective_batch: int = 64,
-                  mask_dir=None, bg_aug_p: float = 0.0) -> Loaders:
+                  mask_dir=None, mask_repo=None, bg_aug_p: float = 0.0) -> Loaders:
     """Build val/test loaders + a train dataset, with a VRAM-sized batch.
 
     Small cards (a 4 GB laptop GPU) don't OOM on Windows — they silently spill to shared
     system RAM and crawl, which looks "stuck" — so the micro-batch is scaled to the card
     and gradient accumulation keeps the *effective* batch at `effective_batch` everywhere.
+
+    Background augmentation: ``mask_dir`` (local splits path) OR ``mask_repo`` (HF
+    paired {image, mask, species, split} dataset from
+    ``scripts/publish_student_masks_full.py``) enables per-sample Gaussian-blur of
+    the background at rate ``bg_aug_p`` — only on the train split.
     """
     eval_tf = eval_tf or eval_transforms()
-    train_ds = _make_ds(data, "train", train_tf, mask_dir=mask_dir, bg_aug_p=bg_aug_p)
+    train_ds = _make_ds(data, "train", train_tf, mask_dir=mask_dir, mask_repo=mask_repo, bg_aug_p=bg_aug_p)
     val_ds = _make_ds(data, "val", eval_tf)
     test_ds = _make_ds(data, "test", eval_tf)
 
@@ -184,5 +225,13 @@ def build_loaders(data: Data, train_tf, env, eval_tf=None, effective_batch: int 
     val = DataLoader(val_ds, batch_size=batch, shuffle=False, num_workers=num_workers)
     test = DataLoader(test_ds, batch_size=batch, shuffle=False, num_workers=num_workers)
     print(f"BATCH {batch} x ACCUM {accum} = eff {batch*accum} | workers {num_workers} | amp {use_amp}")
+
+    mask_key = ""
+    if bg_aug_p > 0:
+        if mask_repo:
+            mask_key = f"hf:{mask_repo}"
+        elif mask_dir is not None:
+            mask_key = f"local:{Path(mask_dir).name}"
     return Loaders(train_ds, val, test, batch, accum, num_workers, use_amp,
-                   train_tf, data.labels, data.n_species)
+                   train_tf, data.labels, data.n_species,
+                   bg_aug_p=bg_aug_p, mask_key=mask_key)

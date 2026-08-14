@@ -43,13 +43,19 @@ def _find_resume(last_path: str, run_name: str, env) -> str | None:
 
 
 def _signature(arch, loaders, optimizer, criterion, epochs, seed) -> str:
-    # a run only resumes a checkpoint with the SAME setup (else it's a different experiment)
+    # a run only resumes a checkpoint with the SAME setup (else it's a different experiment).
     cfg = {"model": arch, "n_species": loaders.n_species, "epochs": epochs,
            "n_labels": loaders.n_labels, "batch": loaders.batch, "seed": seed,
            "lrs": [g["lr"] for g in optimizer.param_groups],
            "wd": optimizer.param_groups[0].get("weight_decay", 0),
            "label_smoothing": getattr(criterion, "label_smoothing", 0.0),
            "aug": str(loaders.train_tf)}
+    # bg_aug_p + mask_key are only added when bg-aug is on — they're dataset-level and
+    # invisible in str(train_tf). Adding them unconditionally would invalidate every
+    # pre-bg-aug checkpoint, so gate on the actual toggle.
+    if getattr(loaders, "bg_aug_p", 0.0) > 0:
+        cfg["bg_aug_p"] = loaders.bg_aug_p
+        cfg["mask_key"] = getattr(loaders, "mask_key", "")
     return hashlib.md5(json.dumps(cfg, sort_keys=True).encode()).hexdigest()[:10]
 
 
