@@ -51,7 +51,6 @@ def fig_iteration_arc(out: Path):
                 fontsize=16, color=INK)
     a1.set_ylim(0, 1.04)
     a1.set_yticks([])
-    a1.set_title("iterations 1–3 · rule-metric score (higher better)", fontsize=16, pad=12)
     labels2 = ["v3\ncorpus", "random", "model\n(best-of-24)", "curated\nteacher"]
     vals2 = [3.63, 3.51, 1.16, 0.81]
     cols2 = [SAGE_SOFT, SAGE_SOFT, GOLD, GREEN]
@@ -61,13 +60,10 @@ def fig_iteration_arc(out: Path):
                 fontsize=16, color=INK)
     a2.set_ylim(0, 4.15)
     a2.set_yticks([])
-    a2.set_title("iterations 4–5 · distance to real beds (lower better)", fontsize=16, pad=12)
     for a in (a1, a2):
         _despine(a)
         a.tick_params(length=0, labelsize=14)
-    fig.text(0.5, 0.015, "the metric changed on purpose: self-authored rules → real-bed statistics",
-             ha="center", fontsize=14.5, style="italic", color=SAGE)
-    plt.tight_layout(rect=(0, 0.07, 1, 1))
+    plt.tight_layout()
     plt.savefig(out / "iteration_arc.png", dpi=180)
     plt.close()
 
@@ -137,9 +133,6 @@ def fig_class_longtail(out: Path):
     ax.set_ylabel("observations (log)", fontsize=14.5)
     _despine(ax, keep=("bottom", "left"))
     ax.tick_params(labelsize=13)
-    ax.set_title("wild abundance is long-tailed — we train on the well-observed head,\n"
-                 "capped at 100 images per species to flatten class imbalance",
-                 fontsize=16, pad=12)
     plt.tight_layout()
     plt.savefig(out / "eda_longtail.png", dpi=180)
     plt.close()
@@ -180,8 +173,6 @@ def fig_ops_map(out: Path):
     arrow(4.1, 4.15, 4.7, 4.15)
     arrow(8.1, 4.15, 8.8, 4.15)
     arrow(10.4, 3.4, 6.6, 1.8, "champion = promotion")
-    ax.text(6.3, 4.95, "retrain → publish → champion — the promotion gate is the leaderboard",
-            ha="center", fontsize=12.5, style="italic", color=SAGE)
     plt.tight_layout()
     plt.savefig(out / "ops_map.png", dpi=180)
     plt.close()
