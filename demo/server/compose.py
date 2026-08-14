@@ -292,72 +292,41 @@ def generate(width: float, depth: float, sun: int, pins: list[dict]) -> dict:
 # ── styled render jobs (sd 1.5 + seg controlnet; ~10-17 min on this machine) ──
 
 
-# ── photo-grounded render init: real dataset images of the plan's species ──────
-# renders start from a mosaic of actual photos (17/21 palette species are in the
-# dataset; three use same-genus stand-ins) so colors and textures come from real
-# plants, not the prompt. without the local photo archive the mosaic falls back
-# to flat palette colors and img2img just runs at higher strength.
+# ── color-grounded render init ──────────────────────────────────────────────
 
-_STANDIN = {"Nepeta racemosa": "Nepeta cataria",
-            "Calamagrostis acutiflora": "Calamagrostis arundinacea",
-            "Sedum telephium": "Hylotelephium telephium"}
-_photo_idx = None
-
-
-def _photos():
-    global _photo_idx
-    if _photo_idx is None:
-        _photo_idx = {}
-        csv = ROOT / "data" / "splits.csv"
-        if csv.exists():
-            try:
-                import pandas as pd
-                g_ = garden()
-                df = pd.read_csv(csv, usecols=["species", "path", "split"])
-                df = df[df["split"] == "train"]
-                want = {_STANDIN.get(p["name"], p["name"]) for p in g_.PALETTE}
-                df = df[df["species"].isin(want)]
-                _photo_idx = {s: grp["path"].tolist()[:12] for s, grp in df.groupby("species")}
-            except Exception:
-                _photo_idx = {}
-    return _photo_idx
-
-
-def _photo_mosaic(plan, w, d, px=100, pad=0.5, seed=0):
+def _paint_init(plan, w, d, px=100, pad=0.5, seed=0):
+    """render init grounded in measured species colors: foliage blobs + flower
+    flecks (bvtrain/species_colors.json, from scripts/measure_species_colors.py)."""
+    import json
+    import math
     import random as _random
 
-    from matplotlib.colors import to_rgb
     from PIL import Image, ImageDraw, ImageFilter
     g_ = garden()
+    colors = json.load(open(ROOT / "bvtrain" / "species_colors.json"))
     rng = _random.Random(seed)
-    W, H = int((w + 2 * pad) * px), int((d + 2 * pad) * px)
-    img = Image.new("RGB", (W, H), (94, 78, 54))
-    any_photo = False
+    W_, H_ = int((w + 2 * pad) * px), int((d + 2 * pad) * px)
+    img = Image.new("RGB", (W_, H_), (96, 80, 56))
+    dr = ImageDraw.Draw(img)
     for i, x, y, r in sorted(plan, key=lambda p: -p[2]):
-        size = max(24, int(2 * r * px))
+        c = colors.get(g_.PALETTE[i]["name"], {"leaf": [0.3, 0.42, 0.22], "bloom": [0.8, 0.5, 0.5]})
+        leaf = tuple(int(255 * v) for v in c["leaf"])
+        bloom = tuple(int(255 * v) for v in c["bloom"])
         cx, cy = (pad + x) * px, (pad + d - y) * px
-        key = _STANDIN.get(g_.PALETTE[i]["name"], g_.PALETTE[i]["name"])
-        tile = None
-        for cand in rng.sample(_photos().get(key, []), k=min(3, len(_photos().get(key, [])))):
-            try:
-                im = Image.open(ROOT / "data" / cand.replace("../data/", "")).convert("RGB")
-            except OSError:
-                continue
-            s = min(im.size)
-            tile = im.crop(((im.width - s) // 2, (im.height - s) // 2,
-                            (im.width + s) // 2, (im.height + s) // 2)).resize((size, size))
-            break
-        if tile is None:
-            c = tuple(int(255 * v) for v in to_rgb(g_.PALETTE[i]["color"]))
-            ImageDraw.Draw(img).ellipse([cx - size / 2, cy - size / 2,
-                                         cx + size / 2, cy + size / 2], fill=c)
-            continue
-        any_photo = True
-        mask = Image.new("L", (size, size), 0)
-        ImageDraw.Draw(mask).ellipse([2, 2, size - 2, size - 2], fill=255)
-        mask = mask.filter(ImageFilter.GaussianBlur(size // 14))
-        img.paste(tile, (int(cx - size / 2), int(cy - size / 2)), mask)
-    return img, any_photo
+        R = r * px
+        for _ in range(7):
+            a = rng.uniform(0, math.tau)
+            rr = R * rng.uniform(0.45, 0.75)
+            ox, oy = cx + math.cos(a) * R * 0.35, cy + math.sin(a) * R * 0.35
+            shade = tuple(min(255, int(v * rng.uniform(0.85, 1.15))) for v in leaf)
+            dr.ellipse([ox - rr, oy - rr, ox + rr, oy + rr], fill=shade)
+        for _ in range(max(6, int(R * R / 55))):
+            a = rng.uniform(0, math.tau)
+            dd = R * math.sqrt(rng.random()) * 0.85
+            fx, fy = cx + math.cos(a) * dd, cy + math.sin(a) * dd
+            fr = max(1.6, R * rng.uniform(0.05, 0.1))
+            dr.ellipse([fx - fr, fy - fr, fx + fr, fy + fr], fill=bloom)
+    return img.filter(ImageFilter.GaussianBlur(1.2))
 
 
 def _load_pipe():
@@ -393,19 +362,17 @@ def _run_render(job_id, plants, w, d):
         plan = [(by_name[p["species"]], p["x"], p["y"], p["r"])
                 for p in plants if p.get("species") in by_name]
         cond = g.seg_image(plan, w, d).resize((640, 384))
-        init, real = _photo_mosaic(plan, w, d)
-        init = init.resize((640, 384))
-        names = sorted({g.PALETTE[i]["common"] for i, *_ in plan})
-        prompt = ("overhead top-down view of a planted perennial garden bed with "
-                  + ", ".join(names[:5]) + ", realistic foliage and flowers, mulched soil")
+        init = _paint_init(plan, w, d).resize((640, 384))
+        prompt = ("top-down garden planting plan, perennial border in bloom, "
+                  "lush watercolor botanical illustration, soft washes")
         job["status"] = "loading model"
         with _render_lock:                      # one render at a time
             pipe = _load_pipe()
             job["status"] = "rendering"
             t0 = time.time()
-            img = pipe(prompt, negative_prompt="map, cartoon, oversaturated",
+            img = pipe(prompt, negative_prompt="photo, map, cartoon, oversaturated, text",
                        image=init, control_image=cond,
-                       strength=0.5 if real else 0.75,
+                       strength=0.55,
                        num_inference_steps=24, guidance_scale=6.5,
                        controlnet_conditioning_scale=0.7,
                        generator=torch.Generator().manual_seed(0)).images[0]

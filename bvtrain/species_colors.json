@@ -1,0 +1,275 @@
+{
+ "Hydrangea macrophylla": {
+  "bloom": [
+   0.376,
+   0.529,
+   0.894
+  ],
+  "leaf": [
+   0.294,
+   0.424,
+   0.129
+  ],
+  "measured_bloom": true
+ },
+ "Rosa rugosa": {
+  "bloom": [
+   0.698,
+   0.522,
+   0.329
+  ],
+  "leaf": [
+   0.435,
+   0.545,
+   0.212
+  ],
+  "measured_bloom": true
+ },
+ "Buxus sempervirens": {
+  "bloom": [
+   0.761,
+   0.682,
+   0.318
+  ],
+  "leaf": [
+   0.365,
+   0.471,
+   0.157
+  ],
+  "measured_bloom": true
+ },
+ "Monarda didyma": {
+  "bloom": [
+   0.694,
+   0.247,
+   0.286
+  ],
+  "leaf": [
+   0.306,
+   0.443,
+   0.247
+  ],
+  "measured_bloom": true
+ },
+ "Echinacea purpurea": {
+  "bloom": [
+   0.643,
+   0.322,
+   0.541
+  ],
+  "leaf": [
+   0.251,
+   0.384,
+   0.173
+  ],
+  "measured_bloom": true
+ },
+ "Hemerocallis fulva": {
+  "bloom": [
+   0.871,
+   0.506,
+   0.235
+  ],
+  "leaf": [
+   0.29,
+   0.396,
+   0.184
+  ],
+  "measured_bloom": true
+ },
+ "Rudbeckia hirta": {
+  "bloom": [
+   0.831,
+   0.671,
+   0.176
+  ],
+  "leaf": [
+   0.396,
+   0.478,
+   0.239
+  ],
+  "measured_bloom": true
+ },
+ "Achillea millefolium": {
+  "bloom": [
+   0.93,
+   0.92,
+   0.86
+  ],
+  "leaf": [
+   0.325,
+   0.404,
+   0.216
+  ],
+  "measured_bloom": true
+ },
+ "Leucanthemum vulgare": {
+  "bloom": [
+   0.93,
+   0.92,
+   0.86
+  ],
+  "leaf": [
+   0.337,
+   0.467,
+   0.149
+  ],
+  "measured_bloom": true
+ },
+ "Salvia nemorosa": {
+  "bloom": [
+   0.4,
+   0.2,
+   0.6
+  ],
+  "leaf": [
+   0.4,
+   0.494,
+   0.259
+  ],
+  "measured_bloom": true
+ },
+ "Alchemilla mollis": {
+  "bloom": [
+   0.612,
+   0.537,
+   0.322
+  ],
+  "leaf": [
+   0.384,
+   0.533,
+   0.263
+  ],
+  "measured_bloom": true
+ },
+ "Nepeta racemosa": {
+  "bloom": [
+   0.93,
+   0.92,
+   0.86
+  ],
+  "leaf": [
+   0.325,
+   0.459,
+   0.224
+  ],
+  "measured_bloom": true
+ },
+ "Geranium sanguineum": {
+  "bloom": [
+   0.78,
+   0.165,
+   0.745
+  ],
+  "leaf": [
+   0.318,
+   0.424,
+   0.165
+  ],
+  "measured_bloom": true
+ },
+ "Vinca minor": {
+  "bloom": [
+   0.439,
+   0.463,
+   0.867
+  ],
+  "leaf": [
+   0.384,
+   0.506,
+   0.286
+  ],
+  "measured_bloom": true
+ },
+ "Phlox subulata": {
+  "bloom": [
+   1.0,
+   0.412,
+   0.706
+  ],
+  "leaf": [
+   0.373,
+   0.447,
+   0.224
+  ],
+  "measured_bloom": true
+ },
+ "Ajuga reptans": {
+  "bloom": [
+   0.098,
+   0.098,
+   0.439
+  ],
+  "leaf": [
+   0.392,
+   0.502,
+   0.212
+  ],
+  "measured_bloom": true
+ },
+ "Veronica spicata": {
+  "bloom": [
+   0.255,
+   0.412,
+   0.882
+  ],
+  "leaf": [
+   0.361,
+   0.494,
+   0.231
+  ],
+  "measured_bloom": true
+ },
+ "Astilbe japonica": {
+  "bloom": [
+   0.941,
+   0.502,
+   0.502
+  ],
+  "leaf": [
+   0.3,
+   0.42,
+   0.22
+  ],
+  "measured_bloom": false
+ },
+ "Calamagrostis acutiflora": {
+  "bloom": [
+   0.612,
+   0.525,
+   0.322
+  ],
+  "leaf": [
+   0.333,
+   0.427,
+   0.2
+  ],
+  "measured_bloom": true
+ },
+ "Sedum telephium": {
+  "bloom": [
+   0.69,
+   0.6,
+   0.282
+  ],
+  "leaf": [
+   0.396,
+   0.463,
+   0.188
+  ],
+  "measured_bloom": true
+ },
+ "Symphyotrichum novae-angliae": {
+  "bloom": [
+   0.596,
+   0.349,
+   0.914
+  ],
+  "leaf": [
+   0.38,
+   0.498,
+   0.294
+  ],
+  "measured_bloom": true
+ }
+}
