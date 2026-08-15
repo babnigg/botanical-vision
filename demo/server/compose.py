@@ -192,19 +192,25 @@ def _sample_batch(model, w, d, sun, pin_list, n, steps=12):
 
 
 def _trim_pinned(plan, pin_list):
-    """the model over-serves pinned species (>= is guaranteed); trim whole masses
-    beyond the brief so 7 pinned coneflowers don't arrive as 17."""
+    """the model over-serves pinned species (>= is guaranteed); trim back to the
+    exact brief. whole masses are kept until the budget; the final mass sheds its
+    outermost members so 7 pinned coneflowers arrive as exactly 7."""
     g_ = garden()
     for sp_idx, cnt in pin_list:
         cl = sorted(([pt for pt in pts] for i, pts in g_._clusters(plan, link=0.35)
                      if i == sp_idx), key=len, reverse=True)
-        keep, total = [], 0
+        kept = set()
+        total = 0
         for pts in cl:
             if total >= cnt:
                 break
-            keep.append(pts)
+            room = cnt - total
+            if len(pts) > room:                      # shed outermost members
+                cx = sum(x for x, _, _ in pts) / len(pts)
+                cy = sum(y for _, y, _ in pts) / len(pts)
+                pts = sorted(pts, key=lambda t: (t[0] - cx) ** 2 + (t[1] - cy) ** 2)[:room]
+            kept.update((round(x, 6), round(y, 6)) for x, y, _ in pts)
             total += len(pts)
-        kept = {(round(x, 6), round(y, 6)) for pts in keep for x, y, _ in pts}
         plan[:] = [p for p in plan
                    if p[0] != sp_idx or (round(p[1], 6), round(p[2], 6)) in kept]
 
