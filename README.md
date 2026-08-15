@@ -228,9 +228,20 @@ measured twice and rejected twice.
 The follow-up — moving background suppression into *training* augmentation
 (`04_train_improved`'s `BG_AUG` toggle: blur the background with the student's
 mask at p=0.5) — was A/B'd under identical code (100 species, 15 epochs,
-2026-08-09): **bg-aug 0.692/0.900 vs control 0.697/0.901 top-1/top-5 — a wash.**
-Three experiments, one conclusion: backgrounds carry usable signal (habitat
-context) for fine-grained species ID; don't fight them.
+2026-08-09): **bg-aug 0.692/0.900 vs control 0.697/0.901 top-1/top-5 — a wash
+at subset scale.** The redesign was re-run at **full vocabulary** under the
+champion recipe (`improved-full-t4`, seed=42, 15 epochs) — HF-path masks are
+supplied by `scripts/publish_student_masks_full.py` (paired
+`{image, mask, species, split}` companion dataset). Publish that dataset,
+flip `BG_AUG=True` in `notebooks/04_train_improved.ipynb`, publish the
+resulting checkpoint as `improved-full-bgaug`, and run
+`python -m share.leaderboard` for the delta against `improved-full-t4`
+(score both variants at `--limit 3000` — default 300 is Bernoulli-noisy
+for sub-2pp deltas).
+
+If the full-vocab A/B stays a wash, the arc closes on the same conclusion at
+the correct scale: backgrounds carry usable signal (habitat context) for
+fine-grained species ID; don't fight them.
 
 What ships: the **UX overlay** in the demo's Identify tab — the mask is returned
 as a base64 PNG and rendered as a toggleable "what the model attends to" overlay,
