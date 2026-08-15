@@ -232,6 +232,43 @@ def fig_random_vs_rules(out: Path):
     plt.close()
 
 
+def fig_real_plans(out: Path):
+    # three harvested permapeople beds, redrawn from their exact coordinates
+    import importlib.util as ilu
+    import sys
+    sys.path.insert(0, str(PROJECT_DIR))
+    spec = ilu.spec_from_file_location("pp", PROJECT_DIR / "scripts" / "permapeople_plans.py")
+    pp = ilu.module_from_spec(spec)
+    spec.loader.exec_module(pp)
+    from matplotlib.patches import Circle, Rectangle
+    picks = [("urbannativeslandscaping__bosch-design", "landscape firm border, 9.5 x 3.7 m"),
+             ("etremblay__richardson-native-plant-garden", "native plant garden, 13.2 x 5.6 m"),
+             ("gahlberg__abby-s-house", "home front bed, 4.9 x 2.5 m")]
+    lay_col = {"structural": GREEN, "seasonal": "#B76A8E", "groundcover": GOLD}
+    fig, axes = plt.subplots(1, 3, figsize=(13.5, 3.4))
+    for ax, (stem, label) in zip(axes, picks):
+        f = PROJECT_DIR / "data" / "permapeople" / (stem + ".json")
+        if not f.exists():
+            ax.axis("off")
+            continue
+        pal, plan, w, d, meta = pp.load_plan(f)
+        ax.add_patch(Rectangle((0, 0), w, d, facecolor="#EFE9D8", edgecolor="#6B5B45", lw=1.1))
+        for i, x, y, r in plan:
+            c = pal[i]["color"]
+            col = lay_col.get(pal[i]["layer"], SAGE) if c == "gray" else c
+            ax.add_patch(Circle((x, y), r, facecolor=col, edgecolor="#6B5B45",
+                                lw=0.4, alpha=0.8))
+        ax.set_xlim(-w * 0.04, w * 1.04)
+        ax.set_ylim(-d * 0.06, d * 1.06)
+        ax.invert_yaxis()
+        ax.set_aspect("equal")
+        ax.set_title(label, fontsize=14, pad=8)
+        ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(out / "realplans_permapeople.png", dpi=180)
+    plt.close()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(Path.home() / "Downloads" / "deck-figures"))
@@ -243,6 +280,10 @@ def main():
     fig_ops_map(out)
     fig_taxonomy_ladder(out)
     fig_random_vs_rules(out)
+    try:
+        fig_real_plans(out)
+    except Exception as e:
+        print('real plans fig skipped:', e)
     try:
         fig_class_longtail(out)
     except FileNotFoundError:
