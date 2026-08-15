@@ -212,6 +212,26 @@ def fig_taxonomy_ladder(out: Path):
     plt.close()
 
 
+def fig_random_vs_rules(out: Path):
+    import random as _r
+    import sys
+    sys.path.insert(0, str(PROJECT_DIR))
+    from bvtrain import garden as g
+    _r.seed(5)
+    w, d, sun = 6.0, 2.4, 2
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(10.8, 5.8))
+    g.show_plan(g.gen_random(w, d), w, d, a1, "random placement")
+    g.show_plan(g.gen_plan(w, d, sun), w, d, a2, "rule generator")
+    for a in (a1, a2):
+        a.set_facecolor("none")
+        a.title.set_fontsize(15)
+        for sp in a.spines.values():
+            sp.set_visible(False)
+    plt.tight_layout()
+    plt.savefig(out / "layout_random_vs_rules.png", dpi=180)
+    plt.close()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(Path.home() / "Downloads" / "deck-figures"))
@@ -222,6 +242,7 @@ def main():
     fig_project_map(out)
     fig_ops_map(out)
     fig_taxonomy_ladder(out)
+    fig_random_vs_rules(out)
     try:
         fig_class_longtail(out)
     except FileNotFoundError:
