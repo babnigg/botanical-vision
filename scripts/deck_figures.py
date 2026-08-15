@@ -181,6 +181,37 @@ def fig_ops_map(out: Path):
     plt.close()
 
 
+def fig_taxonomy_ladder(out: Path):
+    # where predictions land (fp32 full-vocab eval, notebook 05):
+    # exact 0.625, right genus 0.684, right family 0.739
+    segs = [("exact species", 0.625, GREEN),
+            ("right genus", 0.059, SAGE),
+            ("right family", 0.055, GOLD),
+            ("wrong family", 0.261, "#B7AB90")]
+    fig, ax = plt.subplots(figsize=(11.5, 2.1))
+    x = 0.0
+    for name, wdt, col in segs:
+        ax.barh(0, wdt, left=x, height=0.52, color=col, edgecolor="none")
+        inside = wdt > 0.12
+        tcol = "#F5EFE2" if name == "exact species" else INK
+        if inside:
+            ax.text(x + wdt / 2, 0, name + "\n" + format(wdt, ".0%"), ha="center",
+                    va="center", fontsize=15, color=tcol, linespacing=1.25)
+        elif name == "right genus":                     # stagger the two thin segments
+            ax.text(x + wdt / 2, 0.5, "right genus +" + format(wdt, ".0%"),
+                    ha="right", va="bottom", fontsize=12.5, color=INK)
+        else:
+            ax.text(x + wdt / 2, -0.5, "right family +" + format(wdt, ".0%"),
+                    ha="left", va="top", fontsize=12.5, color=INK)
+        x += wdt
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-0.9, 0.85)
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(out / "taxonomy_ladder.png", dpi=180)
+    plt.close()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(Path.home() / "Downloads" / "deck-figures"))
@@ -190,6 +221,7 @@ def main():
     fig_iteration_arc(out)
     fig_project_map(out)
     fig_ops_map(out)
+    fig_taxonomy_ladder(out)
     try:
         fig_class_longtail(out)
     except FileNotFoundError:
