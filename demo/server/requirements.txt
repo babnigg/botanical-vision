@@ -5,6 +5,12 @@ pydantic>=2.6
 python-multipart>=0.0.9
 Pillow>=10
 
+# Compose (garden studio): bvtrain/garden.py needs numpy+matplotlib at import;
+# shapely draws the smooth patch outlines (falls back to circles without it).
+numpy
+matplotlib
+shapely
+
 # Real classifier inference. The API detects torch at runtime and falls back to a
 # stub if it's absent, so the frontend runs without these.
 torch>=2.3
@@ -12,3 +18,9 @@ torchvision>=0.18
 
 # Listing / pulling models from the shared Hugging Face repo (the model picker).
 huggingface_hub
+
+# Optional: the in-app watercolor render (SD1.5 + ControlNet img2img). Slow on CPU;
+# skip these and the plan view still works, the render button just reports the error.
+# diffusers>=0.27
+# transformers
+# accelerate

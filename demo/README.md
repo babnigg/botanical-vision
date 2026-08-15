@@ -9,10 +9,13 @@ Modules:
 - **Identify** — photo → species (top-5 + taxonomy), served from a checkpoint.
 - **Toolbox** — collect identified species; feeds the garden studio.
 - **Compose** — a live garden studio: bed size + sun in, planting plan out, drawn as
-  an SVG plan view. Served by the masked-diffusion layout model (notebook 11,
-  `checkpoints/garden_maskdiff_best.pt`) with species pinning — pick favorites, the
-  model infills the rest; falls back to the rule generator without the checkpoint.
-  The in-app render is symbolic; styled image renders live in notebook 12.
+  an SVG plan view with smooth per-species patches. Routing follows notebook 16:
+  no pins → the curated rule generator (it won the blind eval); pins → the
+  masked-diffusion model (`checkpoints/garden_maskdiff4_best.pt`) infills around
+  them, trimmed to the exact pinned counts. Without the checkpoint everything
+  falls back to rules. A render button paints the plan as a watercolor
+  (SD1.5 + ControlNet img2img over a color-grounded fleck sketch from
+  `bvtrain/species_colors.json`) — a background job, minutes on GPU.
 
 ## Run it (two terminals, from `demo/`)
 
@@ -43,3 +46,6 @@ demo/
 │   └── requirements.txt
 └── web/      Vite + React + TS frontend (Identify · Compose · Toolbox · Roadmap)
 ```
+
+This app was built with Claude Code (Claude Opus 4.8, Anthropic); the models it
+serves come from the team's notebooks.
