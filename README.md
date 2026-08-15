@@ -15,9 +15,10 @@ This is a **computer-vision class**. The project is **two pillars**:
    attached to it: the detection experiment (06), the segmentation experiment (07),
    and the planned **Stylize** layer (08/09: classify → retrieve conspecifics →
    generate new art *of that species*, beyond simple style transfer).
-2. **The landscape generator** — Compose (10–15): symbolic planting-plan generation,
+2. **The landscape generator** — Compose (10–16): symbolic planting-plan generation,
    decode-time search, ControlNet rendering, real-plan harvesting (pixel labeling +
-   structured permapeople plans), and a literature-grounded metric suite.
+   structured permapeople plans), a literature-grounded metric suite, and the
+   curated design-layer reframe with blinded evaluation.
 
 Negative results are kept and reported (e.g., subject-cropping hurts top-1 — measured);
 the course rewards documented iteration, not just wins.
@@ -132,8 +133,8 @@ Face, plans generated procedurally), so you never need local data.
 | `05_evaluate` | everyone | metrics/visuals on a trained checkpoint |
 | `06_detect_subject` | optional | zero-shot YOLO subject localizer + Δtop-1 (see below) |
 | `07_train_segmentation` | everyone | distilled plant/background segmenter — feeds the classifier as a soft-mask preprocessor |
-| `08_style_baseline` | placeholder | Stylize baseline — neural style transfer (scope only, owner tbd) |
-| `09_style_retrieval` | placeholder | Stylize enhanced — classify → retrieve → generate artwork (scope only, owner tbd) |
+| `08_style_baseline` | placeholder | Stylize baseline — neural style transfer (scope only) |
+| `09_style_retrieval` | placeholder | Stylize enhanced — classify → retrieve → generate artwork (scope only) |
 | `10_garden_layout` | optional | Compose — rule-generated planting plans + autoregressive layout transformer |
 | `11_complete_layout` | optional | Compose — masked-diffusion completion (pin toolbox plants, infill the rest; sun-conditioned) |
 | `12_render_plan` | optional | Compose — seg-ControlNet render of any plan (zero training) |
@@ -229,19 +230,15 @@ The follow-up — moving background suppression into *training* augmentation
 (`04_train_improved`'s `BG_AUG` toggle: blur the background with the student's
 mask at p=0.5) — was A/B'd under identical code (100 species, 15 epochs,
 2026-08-09): **bg-aug 0.692/0.900 vs control 0.697/0.901 top-1/top-5 — a wash
-at subset scale.** The redesign was re-run at **full vocabulary** under the
-champion recipe (`improved-full-t4`, seed=42, 15 epochs) — HF-path masks are
-supplied by `scripts/publish_student_masks_full.py` (paired
-`{image, mask, species, split}` companion dataset). Publish that dataset,
-flip `BG_AUG=True` in `notebooks/04_train_improved.ipynb`, publish the
-resulting checkpoint as `improved-full-bgaug`, and run
-`python -m share.leaderboard` for the delta against `improved-full-t4`
-(score both variants at `--limit 3000` — default 300 is Bernoulli-noisy
-for sub-2pp deltas).
+at subset scale.** A full-vocabulary re-run under the champion recipe is staged:
+`scripts/publish_student_masks_full.py` publishes a paired
+`{image, mask, species, split}` companion dataset for the HF path, and
+`04_train_improved` flips `BG_AUG=True` on top of it. Compare via
+`python -m share.leaderboard`, scoring both at `--limit 3000` (the default 300
+is too noisy for sub-2pp deltas).
 
-If the full-vocab A/B stays a wash, the arc closes on the same conclusion at
-the correct scale: backgrounds carry usable signal (habitat context) for
-fine-grained species ID; don't fight them.
+Three experiments, one conclusion so far: backgrounds carry usable signal
+(habitat context) for fine-grained species ID; don't fight them.
 
 What ships: the **UX overlay** in the demo's Identify tab — the mask is returned
 as a base64 PNG and rendered as a toggleable "what the model attends to" overlay,
@@ -277,15 +274,15 @@ backend loads, Identify auto-picks the newest and shows the mask overlay; no
 selection UI needed. Nothing there = segmentation is a no-op, classifier runs
 unchanged.
 
-### Stylize (placeholders, owner tbd)
+### Stylize (scoped, not yet built)
 
-`08_style_baseline` and `09_style_retrieval` scope the planned **Stylize** module (photo →
-artwork). 08 is the floor: plain neural style transfer (VGG-19 Gatys — the Assignment-3
-technique). 09 is the point: **classify → retrieve → generate** — use the shared
-classifier to identify the species, retrieve conspecific exemplars from an embedding
-index (the image-search pattern), and condition generation on them so the artwork stays
-botanically faithful, scored partly by whether the classifier still recognizes it. Both
-are markdown scaffolds with todo cells — nothing is built yet.
+`08_style_baseline` and `09_style_retrieval` scope the **Stylize** module (photo →
+artwork). 08 is the floor: plain neural style transfer (VGG-19 Gatys). 09 is the
+point: **classify → retrieve → generate** — identify the species with the shared
+classifier, retrieve conspecific exemplars from an embedding index, and condition
+generation on them so the artwork stays botanically faithful, scored partly by
+whether the classifier still recognizes it. Both are markdown scaffolds with todo
+cells.
 
 ### Garden layout (Compose, optional)
 
@@ -346,11 +343,14 @@ scoring metrics. Shared primitives (palette, rule generator, metrics, drawing) l
   vs 3.51) while v4 measures 0.81. (2) **honest evaluation** — `realism` (distance
   to real-bed stats we didn't author) is primary; `score3` is held-out report-only;
   final judgment is blinded pairwise sheets. (3) **simplification** — count tokens
-  dropped (canvas 354 → 147), carpets dropped, `curate4` editorial pass added. The
-  pilot pairwise result is reported as-is: **the procedural teacher beat the neural
-  model 4–0**, so the demo routes by capability — no pins → curated rules, pins →
+  dropped (canvas 354 → 147), carpets dropped, `curate4` editorial pass added.
+  Anonymized pairwise eval (2 judges, 12 randomized pairs): **the rule teacher won
+  10–2**, so the demo routes by capability — no pins → curated rules, pins →
   the diffusion model (its unique strength: infilling around fixed slots, trimmed
-  back to the brief).
+  to the exact pinned counts). Renders are color-grounded: bloom/leaf colors
+  measured from dataset photos (`scripts/measure_species_colors.py` →
+  `bvtrain/species_colors.json`) seed a fleck sketch that SD1.5 + ControlNet
+  img2img turns into a watercolor.
 
 ### Rebuilding the dataset (maintainer only)
 
@@ -415,6 +415,7 @@ project/
 │   ├── 02_eda_images.ipynb           # image EDA + split            (maintainer only)
 │   ├── 03_train_classifier.ipynb     # ResNet-50 baseline (fixed reference)
 │   ├── 04_train_improved.ipynb       # ResNet-50 with fine-grained upgrades
+│   ├── 04b_train_vit.ipynb           # ViT-base challenger (HF transformers)
 │   ├── 05_evaluate.ipynb             # metrics + visuals on a saved checkpoint
 │   ├── 06_detect_subject.ipynb       # zero-shot YOLO subject localizer + Δtop-1 (optional)
 │   ├── 07_train_segmentation.ipynb   # distilled plant/bg segmenter (DeepLabV3-MNv3)
@@ -425,7 +426,8 @@ project/
 │   ├── 12_render_plan.ipynb          # compose: seg-controlnet render of any plan
 │   ├── 13_refine_layout.ipynb        # compose: designed corpus + count tokens + best-of-N
 │   ├── 14_real_plans.ipynb           # compose: hough-labeled real drawings → transfer
-│   └── 15_layered_layout.ipynb       # compose: layered corpus + literature metrics + calibration
+│   ├── 15_layered_layout.ipynb       # compose: layered corpus + literature metrics + calibration
+│   └── 16_curated_design.ipynb       # compose: design-layer reframe + realism metric + blinded pairs
 ├── bvtrain/                          # shared training plumbing the notebooks import (env · data · checkpoint · fit · fit_seg · garden)
 ├── share/                            # the team model-sharing loop (publish/leaderboard/score)
 ├── scripts/
@@ -433,13 +435,22 @@ project/
 │   ├── upload_to_hf.py               # publish dataset to Hugging Face
 │   ├── generate_pseudo_masks.py      # FastSAM → masks companion HF dataset (maintainer)
 │   ├── measure_delta_top1.py         # Δtop-1 with/without seg preprocessing
-│   ├── precompute_student_masks.py   # student masks for the BG_AUG training augmentation
+│   ├── precompute_student_masks.py   # student masks for the BG_AUG training augmentation (local path)
+│   ├── publish_student_masks_full.py # paired {image, mask} HF companion dataset (HF path)
 │   ├── harvest_real_plans.py         # crawl publisher plan drawings → data/real_plans/
 │   ├── harvest_permapeople.py        # structured community plans → data/permapeople/
-│   └── permapeople_plans.py          # parse + score real plans (metric calibration)
+│   ├── permapeople_plans.py          # parse + score real plans (metric calibration)
+│   └── measure_species_colors.py     # measured bloom/leaf colors → bvtrain/species_colors.json
 ├── checkpoints/                      # training scratch (gitignored)
 ├── models/planned.json              # roadmap rows for models not yet built
 ├── demo/                            # separate showcase app (React + minimal FastAPI)
 ├── kaggle/                          # headless Kaggle-GPU run tooling (kernel-metadata + README)
 ├── Makefile · requirements.txt
 ```
+
+## AI assistance
+
+Built with help from Claude Code (Claude Opus 4.8, Anthropic) — most heavily the
+`demo/` app (React frontend + serving backend), plus repo plumbing and docs.
+Model choices, experiments, evaluations, and conclusions were directed and
+verified by the team.
