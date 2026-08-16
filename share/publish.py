@@ -27,13 +27,16 @@ def _lean_bundle(ckpt_path: Path, tmp: str) -> tuple[str, dict]:
     labels = payload["labels"]
     hist = payload.get("hist") or {}
     val_acc = float(hist["val_acc"][-1]) if hist.get("val_acc") else None
+    # checkpoints may carry their own arch + preprocessing (e.g. the ViT challenger);
+    # the shared-repo constants are just the resnet defaults
     bundle = {
         "state_dict": payload["state_dict"], "labels": labels,
-        "arch": ARCH, "img_size": IMG_SIZE, "mean": MEAN, "std": STD,
+        "arch": payload.get("arch", ARCH), "img_size": payload.get("img_size", IMG_SIZE),
+        "mean": payload.get("mean", MEAN), "std": payload.get("std", STD),
     }
     path = Path(tmp) / "bundle.pt"
     torch.save(bundle, path)
-    return str(path), {"num_classes": len(labels), "val_acc": val_acc}
+    return str(path), {"num_classes": len(labels), "val_acc": val_acc, "arch": bundle["arch"]}
 
 
 def publish(checkpoint: str, name: str, author: str | None = None, notes: str = "") -> str:

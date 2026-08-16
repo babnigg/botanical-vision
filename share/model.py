@@ -24,13 +24,23 @@ def build_predictor(bundle_or_path, topk: int = TOP_K):
 
     b = load_bundle(bundle_or_path) if isinstance(bundle_or_path, str) else bundle_or_path
     labels = b["labels"]
-    net = models.resnet50()
-    net.fc = nn.Linear(net.fc.in_features, len(labels))
-    net.load_state_dict(b["state_dict"])
+    size = b.get("img_size", IMG_SIZE)
+    arch = b.get("arch", "resnet50")
+    if arch.startswith("vit"):
+        # HF ViT-base; the bundle carries its own preprocessing (0.5 norm, direct
+        # 224x224 resize — no center crop), matching the processor it trained with.
+        from transformers import ViTConfig, ViTForImageClassification
+        net = ViTForImageClassification(ViTConfig(num_labels=len(labels)))
+        net.load_state_dict(b["state_dict"])
+        resize = [transforms.Resize((size, size))]
+    else:
+        net = models.resnet50()
+        net.fc = nn.Linear(net.fc.in_features, len(labels))
+        net.load_state_dict(b["state_dict"])
+        resize = [transforms.Resize(256), transforms.CenterCrop(size)]
     net.eval()
     tf = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(b.get("img_size", IMG_SIZE)),
+        *resize,
         transforms.ToTensor(),
         transforms.Normalize(b.get("mean", MEAN), b.get("std", STD)),
     ])
@@ -38,7 +48,8 @@ def build_predictor(bundle_or_path, topk: int = TOP_K):
     def predict_topk(img):
         x = tf(img.convert("RGB")).unsqueeze(0)
         with torch.no_grad():
-            prob = net(x).float().softmax(1)[0]
+            out = net(x)
+            prob = getattr(out, "logits", out).float().softmax(1)[0]
         return [labels[int(i)] for i in prob.topk(topk).indices]
 
     return predict_topk

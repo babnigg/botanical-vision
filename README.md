@@ -169,8 +169,10 @@ leave it `None` to train on all species (a multi-hour run on the full dataset).
 
 A third architecture, `notebooks/04b_train_vit.ipynb`, fine-tunes **ViT-base**
 (`google/vit-base-patch16-224-in21k`) on the same splits — the transformer
-challenger to the ResNet champion. Train it, then `python -m share.publish` the
-checkpoint so the leaderboard compares all three under the same protocol.
+challenger to the ResNet champion. Reference run on all 4,094 species (Kaggle
+T4, 5 epochs, 2026-08-16): **test top-1 0.604 · top-5 0.804** (best val 0.605) —
+above the 5-epoch baseline, below the tuned ResNet at a third of its epochs;
+published as `vit-base` on the shared repo.
 
 **Resumable training.** `bv.fit()` saves full state (model, optimizer, scheduler,
 epoch, step, best-val, history) every `ckpt_every` steps and writes two checkpoints
