@@ -1,8 +1,18 @@
+import { useEffect, useState } from "react";
+import { api } from "../api";
 import { useStore } from "../store";
 import TaxonTree from "../components/TaxonTree";
 
 export default function Toolbox() {
   const { toolbox } = useStore();
+  const [palette, setPalette] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    api
+      .composePalette()
+      .then((r) => setPalette(new Set(r.palette.map((p) => p.name))))
+      .catch(() => {});
+  }, []);
 
   if (!toolbox.length)
     return (
@@ -40,6 +50,18 @@ export default function Toolbox() {
                   <div className="status">
                     <span className="s on">identified</span>
                     <span className={`s ${e.planted ? "on" : ""}`}>planted</span>
+                    {palette.size > 0 && (
+                      <span
+                        className={`s ${palette.has(t.species) ? "on" : ""}`}
+                        title={
+                          palette.has(t.species)
+                            ? "in the garden palette — pin it in Compose"
+                            : "not in the garden palette yet — Compose designs from a curated set with known growth traits"
+                        }
+                      >
+                        palette
+                      </span>
+                    )}
                   </div>
                 </div>
               );
