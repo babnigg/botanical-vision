@@ -284,7 +284,10 @@ point: **classify → retrieve → generate** — identify the species with the 
 classifier, retrieve conspecific exemplars from an embedding index, and condition
 generation on them so the artwork stays botanically faithful, scored partly by
 whether the classifier still recognizes it. Both are markdown scaffolds with todo
-cells.
+cells; a first working pass of the full pipeline (v0.02, with species-fidelity and
+CLIP-similarity scoring) is `stylize(v2).ipynb` at the repo root, alongside
+`vit_v2.ipynb` (a 100-species ViT experiment; the full-vocabulary run is
+`04b_train_vit`).
 
 ### Garden layout (Compose, optional)
 

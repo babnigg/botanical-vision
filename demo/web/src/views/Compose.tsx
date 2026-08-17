@@ -78,7 +78,7 @@ export default function Compose() {
     return (
       <NotYet
         title="Garden design"
-        needs="the garden layout model (notebook 11) and its plant palette"
+        needs="the garden layout model (notebook 16) and its plant palette"
         onRoadmap={() => setView("overview")}
       />
     );
